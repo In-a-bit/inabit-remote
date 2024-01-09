@@ -1,0 +1,54 @@
+###############################
+# BASIC BUILDER
+###############################
+FROM node:18-bookworm-slim AS development
+# Hide Open Collective message from install logs
+ENV OPENCOLLECTIVE_HIDE=1
+# Hiden NPM security message from install logs
+ENV NPM_CONFIG_AUDIT=false
+# Hide NPM funding message from install logs
+ENV NPM_CONFIG_FUND=false
+
+# Fixing NPM issue. NPM tries caching files in an unpermitted folder.
+RUN npm config set cache /tmp --global
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y python3
+RUN npm i -g turbo
+
+COPY . .
+
+WORKDIR /app/apps/approver
+
+###############################
+# BUILD FOR PRODUCTION
+###############################
+
+FROM development AS builder
+
+RUN . /app/docker/scripts/approver-install.sh 
+
+ENV NODE_ENV production
+
+RUN cd /app \
+  && npm ci --include-workspace-root=true --workspace=apps/approver --omit=dev --ignore-scripts=true 
+###############################
+# PRODUCTION RUNNER
+###############################
+FROM node:18-bookworm-slim AS production
+# Hide Open Collective message from install logs
+ENV OPENCOLLECTIVE_HIDE=1
+# Hiden NPM security message from install logs
+ENV NPM_CONFIG_AUDIT=false
+# Hide NPM funding message from install logs
+ENV NPM_CONFIG_FUND=false
+
+RUN apt-get update && apt-get install -y python3
+COPY --from=builder /app /app
+WORKDIR /app/apps/approver
+
+# If you need to run it on local env, convert "set -a && . .env && set +a && node dist/main"
+# to "node dist/main"
+#CMD [ "bash", "-c", "set -a && . .env && set +a && node dist/main" ]
+CMD [ "node", "dist/main"]
