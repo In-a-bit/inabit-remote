@@ -4,8 +4,6 @@
 .dockerignore
 docker-compose.dev.yml
 docker-compose.prod.yml
-.env
-apps/*/.env
 node_modules
 */node_modules
 */*/node_modules

@@ -43,8 +43,9 @@ export class InitiationService {
       this.logger.error(
         `InitApprover init failed. error: ${
           error?.message ?? this.utilsService.errorToString(error)
-        }, approver is exiting....`,
+        }`,
       );
+      this.logger.error("approver is exiting....");
       process.kill(process.pid, 'SIGTERM');
     }
   }
