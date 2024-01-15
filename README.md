@@ -1,6 +1,6 @@
 # Approver App
 
-This standalone project is designed to be deployed on a remote site, enabling integration with Inabit. Its primary purpose is to facilitate the approval of pending transactions within a gated approvals flow.
+This standalone project is designed to be deployed on a user's own server, enabling integration with Inabit from remote. Its primary purpose is to facilitate the approval of pending transactions within a gated approvals flow.
 
 ## Functionality
 
@@ -50,14 +50,19 @@ The required config can be provided in 2 ways:
 1. Baked into the docker by building the docker with a valid `.env` file.
 2. Through the `docker-compose.prod.yml` file variables override section `environment`.
 
+In case using `.env` is selected, remember to modify or remove the `environment:` section, from `docker-compose.prod.yml`.
+
 ### Required Environment Variables
 
 ```env
 INABIT_API_BASE_URL=http://localhost:3000/graphql
-SIGNER_USERNAME=signer13@example
+SIGNER_USERNAME=signer@example
 SIGNER_PASSWORD=signer
 APPROVER_URL=http://example.example
 APPROVER_PORT=3020
+SECRET=change-me
+FILE_PATH=dat
+FILE_NAME=k.dat
 ```
 ### Important
 

@@ -4,6 +4,12 @@ import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Logger } from 'winston';
 import { UtilsService } from '../utils/utils.service';
 import { KeysService } from '../keys/keys.service';
+import {
+  getApiSignerStateResponse,
+  getPairingTokenResponse,
+  loginResponse,
+  sendPairingDataResponse,
+} from '../utils/types/responseTypes';
 
 @Injectable()
 export class InitiationService {
@@ -41,42 +47,42 @@ export class InitiationService {
       this.logger.info('ApproverService init completed');
     } catch (error) {
       this.logger.error(
-        `InitApprover init failed. error: ${
-          error?.message ?? this.utilsService.errorToString(error)
-        }`,
+        `InitApprover init failed. error: ${this.utilsService.errorToString(
+          error,
+        )}`,
       );
-      this.logger.error("approver is exiting....");
+      this.logger.error('approver is exiting....');
       process.kill(process.pid, 'SIGTERM');
     }
   }
 
-  private async getApiSignerState(accessToken: any) {
+  private async getApiSignerState(
+    accessToken: string,
+  ): Promise<{ pairingStatus: string }> {
     const getApiSignerRequest = {
       query: `query ApiSigner {\r\n  apiSigner {\r\n    signatureKey,\r\n    pairingStatus,\r\n    id\r\n  }\r\n}`,
     };
     let apiSigner;
     try {
       apiSigner = (
-        await this.utilsService.sendRequestToInabit(
+        await this.utilsService.sendRequestToInabit<getApiSignerStateResponse>(
           getApiSignerRequest,
           accessToken,
         )
       )?.data?.apiSigner;
     } catch (error) {
       this.logger.error(
-        `getApiSignerState error: ${
-          error?.message ?? this.utilsService.errorToString(error)
-        }`,
+        `getApiSignerState error: ${this.utilsService.errorToString(error)}`,
       );
       throw error;
     }
     return apiSigner;
   }
 
-  private async login() {
+  private async login(): Promise<string> {
     const email = this.configService.getOrThrow('SIGNER_USERNAME');
     const password = this.configService.getOrThrow('SIGNER_PASSWORD');
-    let accessToken;
+    let accessToken: string;
     const loginRequest = {
       query: `mutation Login($credentials: Credentials!) {\r\n  login(credentials: $credentials) {\r\n    accessToken\r\n  }\r\n}`,
       variables: {
@@ -90,20 +96,21 @@ export class InitiationService {
 
     try {
       accessToken = (
-        await this.utilsService.sendRequestToInabit(loginRequest, '')
+        await this.utilsService.sendRequestToInabit<loginResponse>(
+          loginRequest,
+          '',
+        )
       )?.data?.login?.accessToken;
     } catch (error) {
       this.logger.error(
-        `login error: ${
-          error?.message ?? this.utilsService.errorToString(error)
-        }`,
+        `login error: ${this.utilsService.errorToString(error)}`,
       );
       throw error;
     }
     return accessToken;
   }
 
-  private async startPairingProcess(accessToken: any) {
+  private async startPairingProcess(accessToken: string): Promise<void> {
     this.logger.info('Getting a signature key');
     const signatureKey = await this.keysService.getOrCreateSignatureKey();
 
@@ -111,19 +118,13 @@ export class InitiationService {
     const pairingToken = await this.getPairingToken(accessToken);
 
     this.logger.info('Sending pairing data');
-    const pairingResult = await this.sendPairingData(
-      signatureKey,
-      pairingToken,
-    );
-    if (!pairingResult?.data?.pairRemoteDevice) {
-      this.logger.error(
-        pairingResult?.errors?.at(0)?.extensions?.message ?? 'sendPairingData error',
-      );
-      throw pairingResult?.errors?.at(0) ?? new Error('sendPairingData error');
-    }
+    await this.sendPairingData(signatureKey, pairingToken);
   }
 
-  private async sendPairingData(signatureKey: string, pairingToken: any) {
+  private async sendPairingData(
+    signatureKey: string,
+    pairingToken: string,
+  ): Promise<boolean> {
     const approverDomain = this.configService.getOrThrow('APPROVER_URL');
     let pairingResult;
     const pairRemoteDeviceRequest = {
@@ -134,38 +135,42 @@ export class InitiationService {
       },
     };
     try {
-      pairingResult = await this.utilsService.sendRequestToInabit(
-        pairRemoteDeviceRequest,
-        pairingToken,
-      );
+      pairingResult =
+        await this.utilsService.sendRequestToInabit<sendPairingDataResponse>(
+          pairRemoteDeviceRequest,
+          pairingToken,
+        );
+      if (!pairingResult?.data?.pairRemoteDevice) {
+        const error =
+          pairingResult?.errors?.at(0)?.extensions?.message ??
+          'sendPairingData error: failed pairing approver';
+        this.logger.error(error);
+        throw pairingResult?.errors?.at(0) ?? new Error(error);
+      }
     } catch (error) {
       this.logger.error(
-        `sendPairingData error: ${
-          error?.message ?? this.utilsService.errorToString(error)
-        }`,
+        `sendPairingData error: ${this.utilsService.errorToString(error)}`,
       );
       throw error;
     }
-    return pairingResult;
+    return pairingResult?.data?.pairRemoteDevice;
   }
 
-  private async getPairingToken(accessToken: any) {
+  private async getPairingToken(accessToken: string): Promise<string> {
     let pairingToken;
     const getPairingTokenRequest = {
       query: `mutation GetPairingTokenForApiSinger {\r\n  getPairingTokenForApiSinger {\r\n    accessToken\r\n    email\r\n  }\r\n}`,
     };
     try {
       pairingToken = (
-        await this.utilsService.sendRequestToInabit(
+        await this.utilsService.sendRequestToInabit<getPairingTokenResponse>(
           getPairingTokenRequest,
           accessToken,
         )
       )?.data?.getPairingTokenForApiSinger?.accessToken;
     } catch (error) {
       this.logger.error(
-        `getPairingToken error: ${
-          error?.message ?? this.utilsService.errorToString(error)
-        }`,
+        `getPairingToken error: ${this.utilsService.errorToString(error)}`,
       );
       throw error;
     }

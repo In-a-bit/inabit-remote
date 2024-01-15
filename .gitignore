@@ -1,7 +1,8 @@
 # compiled output
 /dist
 /node_modules
-
+/apps/approver/dist
+/apps/approver/node_modules
 # Logs
 logs
 *.log

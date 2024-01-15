@@ -20,7 +20,7 @@ export class KeysService {
     this.logger.info('KeysService initialized');
   }
 
-  async getOrCreateSignatureKey() {
+  async getOrCreateSignatureKey(): Promise<string> {
     let signatureKey;
     const filePath = this.configService.get('FILE_PATH', 'dat');
     const fileName = this.configService.get('FILE_NAME', 'k.dat');
@@ -48,7 +48,7 @@ export class KeysService {
     const keyPair = generateKeyPairSync('ec', {
       namedCurve: 'P-256',
     });
-    
+
     const pemFormattedPrivateECKey = keyPair.privateKey
       .export({ format: 'pem', type: 'sec1' })
       .toString();
@@ -71,7 +71,7 @@ export class KeysService {
     });
   }
 
-  async getSignatureKey(keys: string) {
+  async getSignatureKey(keys: string): Promise<string> {
     const keysObject = JSON.parse(keys);
     const signatureKey = await this.signJWT(
       keysObject?.privateKey,
@@ -80,7 +80,7 @@ export class KeysService {
     return signatureKey;
   }
 
-  getKid(jwk: JsonWebKey) {
+  getKid(jwk: JsonWebKey): string {
     const jwkString = JSON.stringify(jwk);
     const kid = createHash('sha256').update(jwkString).digest('base64');
     return kid;

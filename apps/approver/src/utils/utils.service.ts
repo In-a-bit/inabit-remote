@@ -16,7 +16,7 @@ export class UtilsService {
     this.logger.info('UtilsService initialized');
   }
 
-  async sendRequestToInabit(graphql: any, accessToken: string) {
+  async sendRequestToInabit<T>(graphql: any, accessToken: string): Promise<T> {
     const InabitEndpointUrl = this.config.get('INABIT_API_BASE_URL');
     try {
       const config = {
@@ -74,7 +74,7 @@ export class UtilsService {
   }
 
   errorToString(error: any): string {
-    if (!error) return '';
+    if (!error) return 'unknown error';
 
     if (typeof error === 'string') return error;
 
@@ -84,6 +84,6 @@ export class UtilsService {
         JSON.stringify(error, Object.getOwnPropertyNames(error))
       }`;
 
-    return '';
+    return 'unknown error';
   }
 }

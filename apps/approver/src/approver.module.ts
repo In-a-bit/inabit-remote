@@ -13,7 +13,7 @@ import * as winston from 'winston';
     ConfigModule.forRoot({ isGlobal: true }),
     WinstonModule.forRootAsync({
       useFactory: (configService) => ({
-        level: configService.get('LOGGER_LEVEL'),
+        level: configService.get('LOGGER_LEVEL', 'info'),
         format: winston.format.combine(
           winston.format.timestamp(),
           winston.format.splat(),
