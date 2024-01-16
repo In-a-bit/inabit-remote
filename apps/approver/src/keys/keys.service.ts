@@ -35,7 +35,7 @@ export class KeysService {
       signatureKey = await this.getSignatureKey(keys);
       this.logger.info(signatureKey);
     } else {
-      const keys = await this.getKey();
+      const keys = await this.generateKey();
       signatureKey = await this.getSignatureKey(keys);
       const encryptedKeys = cs.AES.encrypt(keys, password).toString();
       fs.mkdirSync(keysPath.replace(`/${fileName}`, ''), { recursive: true });
@@ -44,7 +44,7 @@ export class KeysService {
     return signatureKey;
   }
 
-  async getKey(): Promise<string> {
+  async generateKey(): Promise<string> {
     const keyPair = generateKeyPairSync('ec', {
       namedCurve: 'P-256',
     });
