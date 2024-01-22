@@ -19,7 +19,7 @@ export class ApproverService {
 
   async onModuleInit() {
     try {
-      await this.initiationService.InitApprover();
+      await this.initiationService.initApprover();
     } catch (error) {
       this.logger.error(
         `ApproverService onModuleInit error: ${

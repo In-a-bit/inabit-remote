@@ -4,7 +4,13 @@ import { Inject } from '@nestjs/common';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Logger } from 'winston';
 import { ConfigService } from '@nestjs/config';
-import { createHash, createPublicKey, generateKeyPairSync } from 'crypto';
+import {
+  createHash,
+  createPublicKey,
+  generateKeyPairSync,
+  createHmac,
+  randomBytes,
+} from 'crypto';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as cs from 'crypto-js';
@@ -20,8 +26,14 @@ export class KeysService {
     this.logger.info('KeysService initialized');
   }
 
-  async getOrCreateSignatureKey(): Promise<string> {
-    let signatureKey;
+  async getSignedPairingData(message: string, mac: string): Promise<string> {
+    const key = await this.getOrCreateApproverKey();
+    const signatureKey = await this.signPairingData(key, message, mac);
+    this.logger.info(`signature key : ${signatureKey}`);
+    return signatureKey;
+  }
+
+  private async getOrCreateApproverKey(): Promise<string> {
     const filePath = this.configService.get('FILE_PATH', 'dat');
     const fileName = this.configService.get('FILE_NAME', 'k.dat');
     const password = this.configService.getOrThrow('SECRET');
@@ -29,19 +41,15 @@ export class KeysService {
     const keysPath = `${appRootPath}/${filePath}/${fileName}`;
     if (fs.existsSync(keysPath)) {
       const encryptedKeys = fs.readFileSync(keysPath).toString();
-      const keys = cs.AES.decrypt(encryptedKeys, password).toString(
-        cs.enc.Utf8,
-      );
-      signatureKey = await this.getSignatureKey(keys);
-      this.logger.info(signatureKey);
+      const key = cs.AES.decrypt(encryptedKeys, password).toString(cs.enc.Utf8);
+      return key;
     } else {
-      const keys = await this.generateKey();
-      signatureKey = await this.getSignatureKey(keys);
-      const encryptedKeys = cs.AES.encrypt(keys, password).toString();
+      const key = await this.generateKey();
+      const encryptedKeys = cs.AES.encrypt(key, password).toString();
       fs.mkdirSync(keysPath.replace(`/${fileName}`, ''), { recursive: true });
       fs.writeFileSync(keysPath, encryptedKeys.toString());
+      return key;
     }
-    return signatureKey;
   }
 
   async generateKey(): Promise<string> {
@@ -71,11 +79,19 @@ export class KeysService {
     });
   }
 
-  async getSignatureKey(keys: string): Promise<string> {
-    const keysObject = JSON.parse(keys);
+  async signPairingData(
+    key: string,
+    message: string,
+    mac: string,
+  ): Promise<string> {
+    const keyObject = JSON.parse(key);
     const signatureKey = await this.signJWT(
-      keysObject?.privateKey,
-      JSON.stringify({ verify_key: { jwk: keysObject?.jwk } }),
+      keyObject?.privateKey,
+      JSON.stringify({
+        verify_key: { jwk: keyObject?.jwk },
+        message,
+        mac,
+      }),
     );
     return signatureKey;
   }
@@ -84,5 +100,16 @@ export class KeysService {
     const jwkString = JSON.stringify(jwk);
     const kid = createHash('sha256').update(jwkString).digest('base64');
     return kid;
+  }
+
+  async getPairingCode(): Promise<any> {
+    return randomBytes(32).toString('hex');
+  }
+
+  async getHashedPairingData(
+    message: string,
+    pairingCode: string,
+  ): Promise<string> {
+    return createHmac('sha256', pairingCode).update(message).digest('hex');
   }
 }
