@@ -26,15 +26,14 @@ export class KeysService {
     this.logger.info('KeysService initialized');
   }
 
-  async getSignedPairingData(message = '', mac = ''): Promise<string> {
+  async getSignedPairingData(message: string, mac: string): Promise<string> {
     const key = await this.getOrCreateApproverKey();
     const signatureKey = await this.signPairingData(key, message, mac);
-    this.logger.info(signatureKey);
+    this.logger.info(`signature key : ${signatureKey}`);
     return signatureKey;
   }
 
   private async getOrCreateApproverKey(): Promise<string> {
-    let key;
     const filePath = this.configService.get('FILE_PATH', 'dat');
     const fileName = this.configService.get('FILE_NAME', 'k.dat');
     const password = this.configService.getOrThrow('SECRET');
@@ -42,14 +41,15 @@ export class KeysService {
     const keysPath = `${appRootPath}/${filePath}/${fileName}`;
     if (fs.existsSync(keysPath)) {
       const encryptedKeys = fs.readFileSync(keysPath).toString();
-      key = cs.AES.decrypt(encryptedKeys, password).toString(cs.enc.Utf8);
+      const key = cs.AES.decrypt(encryptedKeys, password).toString(cs.enc.Utf8);
+      return key;
     } else {
-      key = await this.generateKey();
+      const key = await this.generateKey();
       const encryptedKeys = cs.AES.encrypt(key, password).toString();
       fs.mkdirSync(keysPath.replace(`/${fileName}`, ''), { recursive: true });
       fs.writeFileSync(keysPath, encryptedKeys.toString());
+      return key;
     }
-    return key;
   }
 
   async generateKey(): Promise<string> {
@@ -105,7 +105,7 @@ export class KeysService {
   async getPairingCode(): Promise<any> {
     return randomBytes(32).toString('hex');
   }
-  
+
   async getHashedPairingData(
     message: string,
     pairingCode: string,

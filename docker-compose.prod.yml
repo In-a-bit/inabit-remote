@@ -1,4 +1,4 @@
-version: "3"
+version: "3.4"
 services:
   approver:
     build:
@@ -7,5 +7,5 @@ services:
       target: production
     volumes:
       - ./dat:/app/apps/approver/dat
-    environment:
-      - INABIT_API_BASE_URL=http://host.docker.internal:3000/graphql
+ #   environment:
+ #     - INABIT_API_BASE_URL=http://host.docker.internal:3000/graphql

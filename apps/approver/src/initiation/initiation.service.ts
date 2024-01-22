@@ -9,7 +9,8 @@ import {
   getPairingTokenResponse,
   loginResponse,
   sendPairingDataResponse,
-} from '../utils/types/responseTypes';
+} from '../utils/types/InabitResponseTypes';
+import { EnumApproverPairingStatus } from '../utils/enums/EnumApproverPairingStatus';
 
 @Injectable()
 export class InitiationService {
@@ -20,7 +21,7 @@ export class InitiationService {
     @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
   ) {}
 
-  async InitApprover() {
+  async initApprover() {
     try {
       this.logger.info('Init Approver started');
       const accessToken = await this.login();
@@ -28,8 +29,9 @@ export class InitiationService {
       this.logger.info('Checking if Approver is paired already.');
       const apiSigner = await this.getApiSignerState(accessToken);
 
-      if (!apiSigner)
+      if (!apiSigner) {
         throw new Error('Approver is not registered, contact support.');
+      }
 
       if (this.pairingNeeded(apiSigner)) {
         this.logger.info(
@@ -38,9 +40,13 @@ export class InitiationService {
         await this.startPairingProcess(accessToken);
       }
 
-      const isPaired = apiSigner?.pairingStatus === 'Paired';
+      const isPaired =
+        apiSigner?.pairingStatus === EnumApproverPairingStatus.Paired;
       this.logger.info(
-        'Approver is ' + (isPaired ? 'paired' : 'waiting for approval'),
+        'Approver is ' +
+          (isPaired
+            ? EnumApproverPairingStatus.Paired
+            : 'waiting for approval'),
       );
 
       this.logger.info(
@@ -50,15 +56,20 @@ export class InitiationService {
       );
     } catch (error) {
       this.logger.error(
-        `Init Approver failed. error: ${this.utilsService.errorToString(error)}`,
+        `Init Approver failed. error: ${this.utilsService.errorToString(
+          error,
+        )}`,
       );
-      this.logger.error('Exiting....');
+      this.logger.error('Approver shuts down.');
       process.kill(process.pid, 'SIGTERM');
     }
   }
 
-  private pairingNeeded(apiSigner: { pairingStatus: string }) {
-    return !['WaitingForApproval', 'Paired'].includes(apiSigner?.pairingStatus);
+  private pairingNeeded(apiSigner: { pairingStatus: string }): boolean {
+    return ![
+      EnumApproverPairingStatus.WaitingForApproval.valueOf(),
+      EnumApproverPairingStatus.Paired.valueOf(),
+    ].includes(apiSigner?.pairingStatus);
   }
 
   private async getApiSignerState(
@@ -122,7 +133,7 @@ export class InitiationService {
     this.logger.info('Getting a pairing code');
     const pairingCode = await this.keysService.getPairingCode();
     this.logger.info(`Pairing code: ${pairingCode}`);
-    const message = this.GetPairingRequestData();
+    const message = this.getPairingRequestData();
     const mac = await this.keysService.getHashedPairingData(
       message,
       pairingCode,
@@ -138,13 +149,10 @@ export class InitiationService {
     await this.sendPairingData(signatureKey, pairingToken);
   }
 
-  private GetPairingRequestData() {
+  private getPairingRequestData(): string {
     const data = {
       creator: {
-        email: this.configService.get(
-          'APPROVER_CREATOR_EMAIL',
-          'issuer@company.example',
-        ),
+        email: this.configService.getOrThrow('APPROVER_CREATOR_EMAIL'),
       },
     };
     return JSON.stringify(data);
