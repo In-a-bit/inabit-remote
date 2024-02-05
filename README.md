@@ -88,3 +88,67 @@ Ensure there is correspondence between the volume mapping and the selected `FILE
 volumes:
       - ./dat:/app/apps/approver/dat
 ```
+
+## Sign On Transactions ( Automatic Flow )
+
+On a transaction creation in Inabit, 
+The approver is triggered to handle the requested transaction approval and sign on the approve/reject decision.
+
+In order to handle transaction approvals: 
+1. Approver need to be in a status `Paird`.
+2. Configure an external validation url ('endpoint'), implementing the Approver's required approval logics:
+
+a. The external validation endpoint is expected to expose a 'post' http endpoint for validation purpose. 
+      *connectivity to the endpoint must be enabled.
+
+```env
+VALIDATION_CALLBACK_URL=http://koko.com/validation
+```
+
+b. The endpoint will automatically be passed a `TransactionValidationData` json object at the body of the http 'post' call. 
+ with the following structure:
+
+  ```
+ {
+  createTime: string;
+  transactionId: string;
+  transactionType: string;
+  initiatorId: string;
+  organizationId: string;
+  network: string;
+  walletId: string;
+  walletAddress: string;
+  to: string;
+  coin: string;
+  amount: number;
+  baseCurrencyCode: string;
+  baseCurrencyAmount: number;
+};
+  ```
+
+
+c. The endpoint is expected to return a response with the following structure:
+
+```
+      { approved: boolean }  // allowed: { approved: true / false }
+``` 
+
+d. In case of an exception a retry will be scheduled within 3 minutes up to 10 times (10 * 3 minutes).
+
+  ```
+  VALIDATION_RETRY_INTERVAL_MINUTES=3
+  VALIDATION_RETRY_MAX_COUNT=10
+  ```
+
+e. A signed approval (using Approver's key) will be sent back automatically to Inabit, for further processing (policy enforcement).
+
+
+### Mock validation
+
+It is also possible to mock external validation url using a predefined endpoint (transaction/validate) on the Approver,
+and control the required outcome.
+Using the following configuration 
+```env
+VALIDATION_CALLBACK_URL=[APPROVER_URL]transaction/validate # replace [APPROVER_URL] with the Approver's url. 
+VALIDATION_MOCK_SET_RESULT=rejected   # allowed: approved / rejected / exception
+```

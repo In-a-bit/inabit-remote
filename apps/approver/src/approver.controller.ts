@@ -26,4 +26,21 @@ export class ApproverController {
     }
     return true;
   }
+
+  @Post('transaction/approval')
+  async transactionApprovalRequest(
+    @Body() body: { data: string },
+  ): Promise<boolean> {
+    setTimeout(() => {
+      this.approverService.handleTransactionApprovalRequest(body?.data);
+    });
+    return true;
+  }
+
+  @Post('transaction/validate')
+  async mockValidateTransaction(
+    @Body() body: any,
+  ): Promise<{ approved: boolean }> {
+    return this.approverService.mockValidateTransaction(body);
+  }
 }

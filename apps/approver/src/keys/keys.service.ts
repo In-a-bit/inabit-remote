@@ -33,23 +33,53 @@ export class KeysService {
     return signatureKey;
   }
 
+  async getSignedTransactionData(message: string): Promise<string | undefined> {
+    const key = await this.getApproverKey();
+    if (key) {
+      const signedTransactionApproval = await this.signTransactionApproval(
+        key,
+        message,
+      );
+      this.logger.info(`transaction approval : ${signedTransactionApproval}`);
+      return signedTransactionApproval;
+    }
+    return undefined;
+  }
+
   private async getOrCreateApproverKey(): Promise<string> {
-    const filePath = this.configService.get('FILE_PATH', 'dat');
-    const fileName = this.configService.get('FILE_NAME', 'k.dat');
-    const password = this.configService.getOrThrow('SECRET');
-    const appRootPath = await path.resolve('./');
-    const keysPath = `${appRootPath}/${filePath}/${fileName}`;
-    if (fs.existsSync(keysPath)) {
-      const encryptedKeys = fs.readFileSync(keysPath).toString();
+    const key = await this.getApproverKey();
+    return key ?? (await this.createApproverKey());
+  }
+
+  private async getApproverKey(): Promise<string | undefined> {
+    const keyFilePath = await this.getKeyFilePath();
+    if (fs.existsSync(keyFilePath)) {
+      const password = this.configService.getOrThrow('SECRET');
+      const encryptedKeys = fs.readFileSync(keyFilePath).toString();
       const key = cs.AES.decrypt(encryptedKeys, password).toString(cs.enc.Utf8);
       return key;
-    } else {
-      const key = await this.generateKey();
-      const encryptedKeys = cs.AES.encrypt(key, password).toString();
-      fs.mkdirSync(keysPath.replace(`/${fileName}`, ''), { recursive: true });
-      fs.writeFileSync(keysPath, encryptedKeys.toString());
-      return key;
-    }
+    } else return undefined;
+  }
+
+  private async createApproverKey() {
+    const keyFilePath = await this.getKeyFilePath();
+    const password = this.configService.getOrThrow('SECRET');
+    const key = await this.generateKey();
+    const encryptedKeys = cs.AES.encrypt(key, password).toString();
+    const fileName = this.configService.get('FILE_NAME', 'k.dat');
+    fs.mkdirSync(keyFilePath.replace(`/${fileName}`, ''), {
+      recursive: true,
+    });
+    fs.writeFileSync(keyFilePath, encryptedKeys.toString());
+    return key;
+  }
+
+  private async getKeyFilePath() {
+    const filePath = this.configService.get('FILE_PATH', 'dat');
+    const fileName = this.configService.get('FILE_NAME', 'k.dat');
+    const appRootPath = await path.resolve('./');
+    const keyFilePath = `${appRootPath}/${filePath}/${fileName}`;
+    return keyFilePath;
   }
 
   async generateKey(): Promise<string> {
@@ -94,6 +124,15 @@ export class KeysService {
       }),
     );
     return signatureKey;
+  }
+
+  async signTransactionApproval(key: string, message: string): Promise<string> {
+    const keyObject = JSON.parse(key);
+    const transactionApproval = await this.signJWT(
+      keyObject?.privateKey,
+      message,
+    );
+    return transactionApproval;
   }
 
   getKid(jwk: JsonWebKey): string {
