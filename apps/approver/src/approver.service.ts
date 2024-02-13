@@ -145,7 +145,7 @@ export class ApproverService {
     this.logger.error(
       `handleTransactionApprovalRequest error (retry: ${retryCount}): ${this.utilsService.errorToString(
         error,
-      )}, ${JSON.stringify(error)}`,
+      )}, ${JSON.stringify(error, Object.getOwnPropertyNames(error))}`,
     );
     setTimeout(() => {
       try {
@@ -237,8 +237,8 @@ export class ApproverService {
         !response ||
         (response.approved !== true &&
           response.approved !== false &&
-          response.approved !== 'true' &&
-          response.approved !== 'false')
+          response.approved.toLowerCase() !== 'true' &&
+          response.approved.toLowerCase() !== 'false')
       ) {
         throw new Error(
           `validateTransaction invalid response: ${response?.approved}`,
