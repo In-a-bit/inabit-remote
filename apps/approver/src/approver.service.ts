@@ -8,22 +8,8 @@ import { AuthService } from './auth/auth.service';
 import { KeysService } from './keys/keys.service';
 import { ConfigService } from '@nestjs/config';
 import { EnumPolicyApprovalStatus } from './utils/enums/EnumPolicyApprovalStatus';
-
-export type TransactionValidationData = {
-  createTime: string;
-  transactionId: string;
-  transactionType: string;
-  initiatorId: string;
-  organizationId: string;
-  network: string;
-  walletId: string;
-  walletAddress: string;
-  to: string;
-  coin: string;
-  amount: number;
-  baseCurrencyCode: string;
-  baseCurrencyAmount: number;
-};
+import { TransactionValidationData } from './utils/types/TransactionValidationData';
+import { TransactionApprovalRequestData } from './utils/types/TransactionApprovalRequestData';
 
 @Injectable()
 export class ApproverService {
@@ -49,8 +35,8 @@ export class ApproverService {
     }
   }
 
-  async sendSignedTransactionApproval(
-    id: string,
+  async sendSignedTransactionApprovalToInabit(
+    transactionId: string,
     status: string,
     signedData: string | undefined,
   ): Promise<boolean | undefined> {
@@ -64,7 +50,7 @@ export class ApproverService {
 
     if (this.authService.pairingNeeded(apiSigner)) {
       this.logger.info(
-        'Approver needs to be paired, starts a pairing process...',
+        'Approver needs to be paired before any signing is allowed.',
       );
       throw new Error('Approver is not paired, contact support.');
     }
@@ -76,7 +62,7 @@ export class ApproverService {
           signedData,
           status,
           transaction: {
-            id,
+            id: transactionId,
           },
         },
       },
@@ -101,88 +87,121 @@ export class ApproverService {
   }
 
   async handleTransactionApprovalRequest(
-    data: string,
+    transactionApprovalRequestData: TransactionApprovalRequestData,
     retryCount = 1,
   ): Promise<boolean> {
     try {
-      const transaction = JSON.parse(data);
-      this.logger.info(`Received transaction for approval: ${data}`);
-
-      const maxRetries = this.configService.get(
-        'VALIDATION_RETRY_MAX_COUNT',
-        10,
+      this.logger.info(
+        `Received transaction for approval: ${JSON.stringify(
+          transactionApprovalRequestData,
+        )}`,
       );
-      if (retryCount > maxRetries) {
-        this.logger.error(
-          `handleTransactionApprovalRequest max retries ${maxRetries} reached. (id: ${transaction?.id}))`,
-        );
+
+      if (
+        !this.validateRetryCount(
+          retryCount,
+          transactionApprovalRequestData.transactionId,
+        )
+      )
         return false;
-      }
 
-      // 1. Call the external validation function.
-      const transactionValidationData: TransactionValidationData = {
-        ...transaction,
-      };
-      const validationResponse = await this.validateTransaction(
-        transactionValidationData,
+      const validationResponse = await this.callExternalValidationUrl(
+        transactionApprovalRequestData,
       );
       this.logger.info(
-        `transaction ${transaction.transactionId} validation approved: ${validationResponse?.approved}`,
+        `transaction ${transactionApprovalRequestData.transactionId} validation approved: ${validationResponse.approved}`,
       );
 
-      // 2. Sign the data
-      const dataToBeSigned = this.prepareTransactionApprovalDataToSign(
-        validationResponse?.approved,
-        transaction,
+      const signedTransactionData = await this.signTransaction(
+        validationResponse.approved,
+        transactionApprovalRequestData,
       );
 
-      const signedTransactionData =
-        await this.keysService.getSignedTransactionData(
-          JSON.stringify(dataToBeSigned),
-        );
-      this.logger.info(
-        `transaction ${transaction.transactionId} approval signed: (approved: ${validationResponse?.approved})`,
-      );
-
-      // 3. Send the approval.
-      await this.sendSignedTransactionApproval(
-        transaction.transactionId,
+      await this.sendSignedTransactionApprovalToInabit(
+        transactionApprovalRequestData.transactionId,
         validationResponse?.approved
           ? EnumPolicyApprovalStatus.Approved
           : EnumPolicyApprovalStatus.Rejected,
         signedTransactionData,
       );
       this.logger.info(
-        `transaction ${transaction.transactionId} approval sent: (approved: ${validationResponse?.approved})`,
+        `transaction ${transactionApprovalRequestData.transactionId} approval sent: (approved: ${validationResponse.approved})`,
       );
       return true;
     } catch (error) {
-      this.logger.error(
-        `handleTransactionApprovalRequest error (retry: ${retryCount}): ${this.utilsService.errorToString(
-          error,
-        )}`,
+      return this.handleTransactionApprovalError(
+        retryCount,
+        error,
+        transactionApprovalRequestData,
       );
-      setTimeout(() => {
-        try {
-          this.handleTransactionApprovalRequest(data, retryCount + 1);
-        } catch (error) {
-          this.logger.error(
-            `setTimeout handleTransactionApprovalRequest error (retry: ${retryCount}): ${this.utilsService.errorToString(
-              error,
-            )}`,
-          );
-        }
-      }, this.configService.get('VALIDATION_RETRY_INTERVAL_MINUTES', 3) * 60 * 1000);
-      return false;
     }
   }
 
+  private handleTransactionApprovalError(
+    retryCount: number,
+    error: any,
+    transactionApprovalRequestData: TransactionApprovalRequestData,
+  ) {
+    this.logger.error(
+      `handleTransactionApprovalRequest error (retry: ${retryCount}): ${this.utilsService.errorToString(
+        error,
+      )}, ${JSON.stringify(error)}`,
+    );
+    setTimeout(() => {
+      try {
+        this.handleTransactionApprovalRequest(
+          transactionApprovalRequestData,
+          retryCount + 1,
+        );
+      } catch (error) {
+        this.logger.error(
+          `setTimeout handleTransactionApprovalRequest error (retry: ${retryCount}): ${this.utilsService.errorToString(
+            error,
+          )}`,
+        );
+      }
+    }, this.configService.get('VALIDATION_RETRY_INTERVAL_MINUTES', 3) * 60 * 1000);
+    return false;
+  }
+
+  private async signTransaction(
+    approved: boolean,
+    transactionApprovalRequestData: TransactionApprovalRequestData,
+  ) {
+    const dataToBeSigned = this.prepareTransactionApprovalDataToSign(
+      approved,
+      transactionApprovalRequestData,
+    );
+
+    const signedTransactionData = await this.keysService.signTransactionData(
+      JSON.stringify(dataToBeSigned),
+    );
+    this.logger.info(
+      `transaction ${transactionApprovalRequestData.transactionId} approval signed: (approved: ${approved})`,
+    );
+    return signedTransactionData;
+  }
+
+  private validateRetryCount(
+    retryCount: number,
+    transactionId: string,
+  ): boolean {
+    const maxRetries = this.configService.get('VALIDATION_RETRY_MAX_COUNT', 10);
+    if (retryCount > maxRetries) {
+      this.logger.error(
+        `handleTransactionApprovalRequest max retries ${maxRetries} reached. (id: ${transactionId}))`,
+      );
+      return false;
+    }
+    return true;
+  }
+
   private prepareTransactionApprovalDataToSign(
-    validationResponse: boolean,
+    approved: boolean,
     transaction: any,
   ) {
     return {
-      approved: validationResponse ? 'true' : 'false',
+      approved: approved ? 'true' : 'false',
       constraints: {
         nonce: 0,
         policy_id: transaction.policyRuleId,
@@ -201,26 +220,55 @@ export class ApproverService {
     };
   }
 
-  async validateTransaction(
-    data: TransactionValidationData,
+  async callExternalValidationUrl(
+    transactionValidationData: TransactionValidationData,
   ): Promise<{ approved: boolean }> {
     const validationCallbackUrl = this.configService.getOrThrow(
       'VALIDATION_CALLBACK_URL',
     );
     try {
-      return await this.utilsService.httpClient(
+      const response = await this.utilsService.httpClient(
         validationCallbackUrl,
         'post',
-        data,
+        transactionValidationData,
       );
+
+      if (
+        !response ||
+        (response.approved !== true &&
+          response.approved !== false &&
+          response.approved !== 'true' &&
+          response.approved !== 'false')
+      ) {
+        throw new Error(
+          `validateTransaction invalid response: ${response?.approved}`,
+        );
+      }
+      if (typeof response.approved === 'string') {
+        if (response.approved.toLowerCase() === 'false')
+          response.approved = false;
+        if (response.approved.toLowerCase() === 'true')
+          response.approved = true;
+      }
+      return response;
     } catch (error) {
-      this.logger.error(this.utilsService.errorToString(error));
+      this.logger.error(
+        `callExternalValidationUrl error: ${this.utilsService.errorToString(
+          error,
+        )}`,
+      );
       throw error;
     }
   }
 
-  mockValidateTransaction(body: any): { approved: boolean } {
-    this.logger.info(`mockValidateTransaction: ${body}`);
+  mockValidateTransaction(
+    transactionValidationData: TransactionValidationData,
+  ): {
+    approved: boolean;
+  } {
+    this.logger.info(
+      `mockValidateTransaction: ${JSON.stringify(transactionValidationData)}`,
+    );
     const setResult = this.configService.get(
       'VALIDATION_MOCK_SET_RESULT',
       'rejected',

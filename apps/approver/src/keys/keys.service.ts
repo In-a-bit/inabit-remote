@@ -33,17 +33,16 @@ export class KeysService {
     return signatureKey;
   }
 
-  async getSignedTransactionData(message: string): Promise<string | undefined> {
+  async signTransactionData(message: string): Promise<string> {
     const key = await this.getApproverKey();
     if (key) {
-      const signedTransactionApproval = await this.signTransactionApproval(
-        key,
-        message,
-      );
+      const signedTransactionApproval = await this.sign(key, message);
       this.logger.info(`transaction approval : ${signedTransactionApproval}`);
       return signedTransactionApproval;
     }
-    return undefined;
+    throw new Error(
+      "signTransactionData error: fail to find Approver's signing key",
+    );
   }
 
   private async getOrCreateApproverKey(): Promise<string> {
@@ -126,13 +125,10 @@ export class KeysService {
     return signatureKey;
   }
 
-  async signTransactionApproval(key: string, message: string): Promise<string> {
+  async sign(key: string, data: string): Promise<string> {
     const keyObject = JSON.parse(key);
-    const transactionApproval = await this.signJWT(
-      keyObject?.privateKey,
-      message,
-    );
-    return transactionApproval;
+    const signedData = await this.signJWT(keyObject?.privateKey, data);
+    return signedData;
   }
 
   getKid(jwk: JsonWebKey): string {
