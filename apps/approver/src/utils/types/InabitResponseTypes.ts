@@ -1,4 +1,4 @@
-export type loginResponse = {
+export type LoginResponse = {
   data: {
     login: {
       accessToken: string;
@@ -6,7 +6,7 @@ export type loginResponse = {
   };
 };
 
-export type getApiSignerStateResponse = {
+export type GetApiSignerStateResponse = {
   data: {
     apiSigner: {
       pairingStatus: string;
@@ -14,17 +14,23 @@ export type getApiSignerStateResponse = {
   };
 };
 
-export type sendPairingDataResponse = {
+export type SendPairingDataResponse = {
   errors: any;
   data: {
     pairRemoteDevice: boolean;
   };
 };
 
-export type getPairingTokenResponse = {
+export type GetPairingTokenResponse = {
   data: {
     getPairingTokenForApiSinger: {
       accessToken: string;
     };
+  };
+};
+
+export type CreateSignedTransactionApprovalResponse = {
+  data: {
+    result: boolean;
   };
 };

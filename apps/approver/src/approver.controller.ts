@@ -3,6 +3,8 @@ import { ApproverService } from './approver.service';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Logger } from 'winston';
 import { EnumApproverPairingStatus } from './utils/enums/EnumApproverPairingStatus';
+import { TransactionApprovalRequestData } from './utils/types/TransactionApprovalRequestData';
+import { TransactionValidationData } from './utils/types/TransactionValidationData';
 
 @Controller()
 export class ApproverController {
@@ -25,5 +27,27 @@ export class ApproverController {
       this.logger.info(`Approver pairing ${pairing}}.`);
     }
     return true;
+  }
+
+  @Post('transaction/approval')
+  async transactionApprovalRequest(
+    @Body()
+    data: {
+      transactionApprovalRequestData: TransactionApprovalRequestData;
+    },
+  ): Promise<boolean> {
+    this.approverService.handleTransactionApprovalRequest(
+      data.transactionApprovalRequestData,
+    );
+    return true;
+  }
+
+  @Post('transaction/validate')
+  async mockValidateTransaction(
+    @Body() transactionValidationData: TransactionValidationData,
+  ): Promise<{ approved: boolean }> {
+    return this.approverService.mockValidateTransaction(
+      transactionValidationData,
+    );
   }
 }

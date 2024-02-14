@@ -6,6 +6,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { WinstonModule } from 'nest-winston';
 import { UtilsModule } from './utils/utils.module';
 import { KeysModule } from './keys/keys.module';
+import { AuthModule } from './auth/auth.module';
 import * as winston from 'winston';
 
 @Module({
@@ -35,6 +36,7 @@ import * as winston from 'winston';
     InitiationModule,
     UtilsModule,
     KeysModule,
+    AuthModule,
   ],
   controllers: [ApproverController],
   providers: [ApproverService],
