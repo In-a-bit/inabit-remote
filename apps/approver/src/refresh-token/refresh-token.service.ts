@@ -109,10 +109,7 @@ export class RefreshTokenService {
   }
 
   private async getRefreshTokenFilePath(): Promise<string> {
-    const filePath = this.configService.get(
-      'REFRESH_TOKEN_FILE_PATH',
-      'refresh',
-    );
+    const filePath = this.configService.get('LOGIN_TOKEN_FILE_PATH', 'refresh');
     const fileName = this.getRefreshTokenFileName();
     const appRootPath = await path.resolve('./');
     const refreshFilePath = `${appRootPath}/${filePath}/${fileName}`;
@@ -120,6 +117,6 @@ export class RefreshTokenService {
   }
 
   private getRefreshTokenFileName() {
-    return this.configService.get('REFRESH_TOKEN_FILE_NAME', 'r.dat');
+    return this.configService.get('LOGIN_TOKEN_FILE_NAME', 'r.dat');
   }
 }
