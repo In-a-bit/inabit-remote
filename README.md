@@ -66,7 +66,7 @@ Add the following environment variables in correspondence:
 ```env
 LOGIN_TOKEN_FILE_PATH=refresh
 LOGIN_TOKEN_FILE_NAME=r.dat
-REFRESH_LOGIN_TOKEN_IN_MINUTES=21600 # 15 days in seconds
+REFRESH_LOGIN_TOKEN_IN_MINUTES=21600 # 15 days in seconds, do not change! 
 ```
 
  ### Build
@@ -136,7 +136,7 @@ If not, a pairing flow starts:
 Within the flow interaction with Inabit,
 1. a pairing data is exchanged with Inabit including the public signing key of the approver.
 2. an approval message is sent to the owner of the organization.
-3. a pairing code is produced in the approver (log trace), and must be passed *directly* to the owner for pairing completion.
+3. a pairing code is produced in the approver start up log trace, and must be passed *directly* to the owner for pairing completion.
 
 ```
 {
@@ -216,7 +216,7 @@ VALIDATION_CALLBACK_URL=[APPROVER_URL]transaction/validate # replace [APPROVER_U
 VALIDATION_MOCK_SET_RESULT=rejected   # allowed: approved / rejected / exception
 ```
 
-### Initiation trace log:
+### Initiation trace log example:
 ```
 {
   level: 'info',

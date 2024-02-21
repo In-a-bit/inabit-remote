@@ -16,12 +16,15 @@ export class UtilsService {
     this.logger.info('UtilsService initialized');
   }
 
-  async sendRequestToInabit<T>(graphql: any, accessToken: string): Promise<T> {
+  async sendRequestToInabit<T>(
+    graphql: any,
+    authorizationToken: string,
+  ): Promise<T> {
     const InabitEndpointUrl = this.config.get('INABIT_API_BASE_URL');
     try {
       const config = {
         headers: {
-          Authorization: 'Bearer ' + accessToken,
+          Authorization: 'Bearer ' + authorizationToken,
           'Access-Control-Allow-Origin': '*',
         },
       };

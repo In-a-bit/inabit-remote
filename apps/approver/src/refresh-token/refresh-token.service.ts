@@ -21,7 +21,7 @@ export class RefreshTokenService {
       return fs.readFileSync(refreshTokenFilePath).toString();
     } else {
       throw new Error(
-        'Failed to find login token, check configuration or contact support',
+        `Failed to find login token, check configuration or contact support (${refreshTokenFilePath}).`,
       );
     }
   }
@@ -31,7 +31,7 @@ export class RefreshTokenService {
       const refreshedLoginToken: string = await this.getNewLoginToken();
       await this.saveLoginToken(refreshedLoginToken);
       this.logger.info(`Refresh token completed`);
-      await this.handleRefreshToken();
+      await this.scheduleNextTokenRefresh();
     } catch (error) {
       this.logger.error(
         `refreshToken error: ${this.utilsService.errorToString(
@@ -44,7 +44,7 @@ export class RefreshTokenService {
     }
   }
 
-  async handleRefreshToken() {
+  async scheduleNextTokenRefresh() {
     try {
       this.logger.info(
         `Scheduling next refresh token in ${
@@ -57,12 +57,12 @@ export class RefreshTokenService {
       );
     } catch (error) {
       this.logger.error(
-        `handleRefreshToken error: ${this.utilsService.errorToString(
+        `scheduleNextTokenRefresh error: ${this.utilsService.errorToString(
           error,
         )} , scheduling a retry in 10 minutes`,
       );
       setTimeout(() => {
-        this.handleRefreshToken();
+        this.scheduleNextTokenRefresh();
       }, 10 * 60 * 1000);
     }
   }
