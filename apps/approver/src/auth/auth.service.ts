@@ -6,16 +6,18 @@ import { UtilsService } from '../utils/utils.service';
 import {
   GetApiSignerStateResponse,
   GetPairingTokenResponse,
-  LoginResponse,
   SendPairingDataResponse,
+  getApiUserAccessTokenResponse,
 } from '../utils/types/InabitResponseTypes';
 import { EnumApproverPairingStatus } from '../utils/enums/EnumApproverPairingStatus';
+import { RefreshTokenService } from '../refresh-token/refresh-token.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly configService: ConfigService,
     private readonly utilsService: UtilsService,
+    private readonly refreshTokenService: RefreshTokenService,
     @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
   ) {}
 
@@ -50,27 +52,20 @@ export class AuthService {
   }
 
   async login(): Promise<string> {
-    const email = this.configService.getOrThrow('SIGNER_USERNAME');
-    const password = this.configService.getOrThrow('SIGNER_PASSWORD');
     let accessToken: string;
-    const loginRequest = {
-      query: `mutation Login($credentials: Credentials!) {\r\n  login(credentials: $credentials) {\r\n    accessToken\r\n  }\r\n}`,
-      variables: {
-        credentials: {
-          email,
-          isApi: true,
-          password,
-        },
-      },
-    };
-
     try {
+      const loginToken: string = await this.refreshTokenService.getLoginToken();
+      const GetApiUserAccessTokenRequest = {
+        query: `query GetApiUserAccessToken {\r\n  getApiUserAccessToken\r\n}`,
+        variables: {},
+      };
+
       accessToken = (
-        await this.utilsService.sendRequestToInabit<LoginResponse>(
-          loginRequest,
-          '',
+        await this.utilsService.sendRequestToInabit<getApiUserAccessTokenResponse>(
+          GetApiUserAccessTokenRequest,
+          loginToken,
         )
-      )?.data?.login?.accessToken;
+      )?.data?.getApiUserAccessToken;
     } catch (error) {
       this.logger.error(
         `login error: ${this.utilsService.errorToString(error)}`,
@@ -84,6 +79,7 @@ export class AuthService {
     const data = {
       creator: {
         email: this.configService.getOrThrow('APPROVER_CREATOR_EMAIL'),
+        organizationName: this.configService.getOrThrow('ORGANIZATION_NAME'),
       },
     };
     return JSON.stringify(data);

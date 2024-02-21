@@ -65,7 +65,7 @@ export class KeysService {
     const password = this.configService.getOrThrow('SECRET');
     const key = await this.generateKey();
     const encryptedKeys = cs.AES.encrypt(key, password).toString();
-    const fileName = this.configService.get('FILE_NAME', 'k.dat');
+    const fileName = this.configService.get('KEY_FILE_NAME', 'k.dat');
     fs.mkdirSync(keyFilePath.replace(`/${fileName}`, ''), {
       recursive: true,
     });
@@ -74,8 +74,8 @@ export class KeysService {
   }
 
   private async getKeyFilePath() {
-    const filePath = this.configService.get('FILE_PATH', 'dat');
-    const fileName = this.configService.get('FILE_NAME', 'k.dat');
+    const filePath = this.configService.get('KEY_FILE_PATH', 'dat');
+    const fileName = this.configService.get('KEY_FILE_NAME', 'k.dat');
     const appRootPath = await path.resolve('./');
     const keyFilePath = `${appRootPath}/${filePath}/${fileName}`;
     return keyFilePath;

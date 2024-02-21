@@ -7,5 +7,6 @@ services:
       target: production
     volumes:
       - ./dat:/app/apps/approver/dat
+      - ./refresh:/app/apps/approver/refresh
  #   environment:
  #     - INABIT_API_BASE_URL=http://host.docker.internal:3000/graphql

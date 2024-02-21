@@ -5,6 +5,7 @@ import { UtilsService } from '../utils/utils.service';
 import { KeysService } from '../keys/keys.service';
 import { EnumApproverPairingStatus } from '../utils/enums/EnumApproverPairingStatus';
 import { AuthService } from '../auth/auth.service';
+import { RefreshTokenService } from '../refresh-token/refresh-token.service';
 
 @Injectable()
 export class InitiationService {
@@ -12,6 +13,7 @@ export class InitiationService {
     private readonly utilsService: UtilsService,
     private readonly keysService: KeysService,
     private readonly authService: AuthService,
+    private readonly refreshTokenService: RefreshTokenService,
     @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
   ) {}
 
@@ -48,6 +50,8 @@ export class InitiationService {
           isPaired ? '.' : ', waiting for pairing process completion.'
         }`,
       );
+
+      this.refreshTokenService.refreshToken();
     } catch (error) {
       this.logger.error(
         `Init Approver failed. error: ${this.utilsService.errorToString(
