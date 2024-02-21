@@ -1,8 +1,12 @@
-export type LoginResponse = {
+export type getApiUserAccessTokenResponse = {
   data: {
-    login: {
-      accessToken: string;
-    };
+    getApiUserAccessToken: string;
+  };
+};
+
+export type refreshApiUserLoginTokenResponse = {
+  data: {
+    refreshApiUserLoginToken: string;
   };
 };
 
