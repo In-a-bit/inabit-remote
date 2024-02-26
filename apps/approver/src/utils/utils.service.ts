@@ -24,7 +24,7 @@ export class UtilsService {
     try {
       const config = {
         headers: {
-          Authorization: 'Bearer ' + authorizationToken.trim(),
+          Authorization: 'Bearer ' + authorizationToken?.trim(),
           'Access-Control-Allow-Origin': '*',
         },
       };
