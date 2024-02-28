@@ -216,6 +216,7 @@ export class ApproverService {
         create_time: transaction.createTime,
         creator_id: transaction.initiatorId,
         inabit_id: transaction.transactionId,
+        is_api: true,
       },
     };
   }
