@@ -198,7 +198,7 @@ export class ApproverService {
 
   private prepareTransactionApprovalDataToSign(
     approved: boolean,
-    transaction: any,
+    transaction: TransactionApprovalRequestData,
   ) {
     return {
       approved: approved ? 'true' : 'false',
@@ -217,6 +217,15 @@ export class ApproverService {
         creator_id: transaction.initiatorId,
         inabit_id: transaction.transactionId,
         is_api: true,
+        transaction_type: transaction.transactionType,
+        offramp_details: transaction?.offrampDetails
+          ? {
+              provider: transaction?.offrampDetails?.provider,
+              iban: transaction?.offrampDetails?.iban,
+              account_number: transaction?.offrampDetails?.accountNumber,
+              fiat_currency: transaction?.offrampDetails?.fiatCurrency,
+            }
+          : undefined,
       },
     };
   }
