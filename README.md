@@ -154,7 +154,7 @@ Inabit will send a request to the Approver to handle the requested transaction a
 
 In order to handle transaction approvals: 
 
-1. Approver needs to be in `Paird` status.
+1. Approver needs to be in `Paired` status.
 2. Configure an external validation url ('endpoint'), implementing the Approver's required approval logics:
 
    1.  The external validation endpoint is expected to expose a 'post' http endpoint for validation purpose. 
