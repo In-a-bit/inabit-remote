@@ -16,4 +16,12 @@ export type TransactionApprovalRequestData = {
   baseCurrencyCode: string;
   baseCurrencyRate: string;
   baseCurrencyAmount: number;
+  offrampDetails?: OfframpDetails;
+};
+
+type OfframpDetails = {
+  provider: string;
+  iban: string;
+  accountNumber: string;
+  fiatCurrency: string;
 };
