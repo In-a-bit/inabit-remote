@@ -102,24 +102,39 @@ export class UtilsService {
   }
   
   private appendLogToFile(logEntry: any): void {
-    fs.readFile(this.logFilePath, 'utf8', (err, data) => {
-      if (err) {
-        if (err.code === 'ENOENT') {
-          // File does not exist, create a new one
-          return fs.writeFile(this.logFilePath, JSON.stringify([logEntry], null, 2), (err) => {
-            if (err) throw err;
-          });
-        } else {
-          throw err;
-        }
-      } else {
-        // File exists, append to it
-        const logs = JSON.parse(data);
-        logs.push(logEntry);
-        fs.writeFile(this.logFilePath, JSON.stringify(logs, null, 2), (err) => {
-          if (err) throw err;
-        });
-      }
-    });
+   try {
+     fs.readFile(this.logFilePath, 'utf8', (err, data) => {
+       if (err) {
+         if (err.code === 'ENOENT') {
+           // File does not exist, create a new one
+           return fs.writeFile(this.logFilePath, JSON.stringify([logEntry], null, 2), (err) => {
+             if (err) console.error( err);
+           });
+         } else {
+           this.handelAppendLogToFileError(logEntry, err);
+         }
+       } else {
+         // File exists, append to it
+         const logs = JSON.parse(data);
+         logs.push(logEntry);
+         fs.writeFile(this.logFilePath, JSON.stringify(logs, null, 2), (err) => {
+           if (err) console.error( err);
+         });
+       }
+     });
+   } catch (e) {
+     this.handelAppendLogToFileError(logEntry, e);
+   }
+  }
+  
+  private async handelAppendLogToFileError(logEntry: any, error: any) {
+    console.error(error);
+    await this.sleep(100);
+    return this.appendLogToFile(logEntry)
+  }
+  
+  private async sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+    
   }
 }
