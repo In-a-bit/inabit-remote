@@ -4,6 +4,7 @@ import { Logger } from 'winston';
 import { HttpService } from '@nestjs/axios';
 import { catchError, lastValueFrom, map } from 'rxjs';
 import { ConfigService } from '@nestjs/config';
+import * as fs from 'fs';
 
 @Injectable()
 export class UtilsService {
@@ -88,5 +89,37 @@ export class UtilsService {
       }`;
 
     return 'unknown error';
+  }
+  
+  private readonly logFilePath = 'log.json';
+  
+ fileLog(transactionId: string, type: string): void {
+    const timestamp = new Date().toISOString();
+    this.logger.info(`${type} ${transactionId}`);
+    
+    const logEntry = { transactionId, type, timestamp };
+    this.appendLogToFile(logEntry);
+  }
+  
+  private appendLogToFile(logEntry: any): void {
+    fs.readFile(this.logFilePath, 'utf8', (err, data) => {
+      if (err) {
+        if (err.code === 'ENOENT') {
+          // File does not exist, create a new one
+          return fs.writeFile(this.logFilePath, JSON.stringify([logEntry], null, 2), (err) => {
+            if (err) throw err;
+          });
+        } else {
+          throw err;
+        }
+      } else {
+        // File exists, append to it
+        const logs = JSON.parse(data);
+        logs.push(logEntry);
+        fs.writeFile(this.logFilePath, JSON.stringify(logs, null, 2), (err) => {
+          if (err) throw err;
+        });
+      }
+    });
   }
 }

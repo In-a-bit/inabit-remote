@@ -91,6 +91,7 @@ export class ApproverService {
     retryCount = 1,
   ): Promise<boolean> {
     try {
+      this.utilsService.fileLog(transactionApprovalRequestData.transactionId, "Approver Received")
       this.logger.info(
         `Received transaction for approval: ${JSON.stringify(
           transactionApprovalRequestData,
@@ -124,6 +125,7 @@ export class ApproverService {
           : EnumPolicyApprovalStatus.Rejected,
         signedTransactionData,
       );
+      this.utilsService.fileLog(transactionApprovalRequestData.transactionId, "Approver Sent")
       this.logger.info(
         `transaction ${transactionApprovalRequestData.transactionId} approval sent: (approved: ${validationResponse.approved})`,
       );
