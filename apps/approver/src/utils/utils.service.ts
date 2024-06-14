@@ -98,34 +98,36 @@ export class UtilsService {
     this.logger.info(`${type} ${transactionId}`);
     
     const logEntry = { transactionId, type, timestamp };
-    this.appendLogToFile(logEntry);
+    try {
+      this.appendLogToFile(logEntry);
+    } catch (e) {
+      this.handelAppendLogToFileError(logEntry, e);
+    }
   }
   
   private appendLogToFile(logEntry: any): void {
-   try {
-     fs.readFile(this.logFilePath, 'utf8', (err, data) => {
-       if (err) {
-         if (err.code === 'ENOENT') {
-           // File does not exist, create a new one
-           return fs.writeFile(this.logFilePath, JSON.stringify([logEntry], null, 2), (err) => {
-             if (err) console.error( err);
-           });
-         } else {
-           this.handelAppendLogToFileError(logEntry, err);
-         }
-       } else {
-         // File exists, append to it
-         const logs = JSON.parse(data);
-         logs.push(logEntry);
-         fs.writeFile(this.logFilePath, JSON.stringify(logs, null, 2), (err) => {
-           if (err) console.error( err);
-         });
-       }
-     });
-   } catch (e) {
-     this.handelAppendLogToFileError(logEntry, e);
-   }
+    fs.readFile(this.logFilePath, 'utf8', (err, data) => {
+      if (err) {
+        if (err.code === 'ENOENT') {
+          // File does not exist, create a new one
+          return fs.writeFile(this.logFilePath, JSON.stringify([logEntry], null, 2), (err) => {
+            if (err) throw err;
+          });
+        } else {
+          throw err;
+        }
+      } else {
+        // File exists, append to it
+        const logs = JSON.parse(data);
+        logs.push(logEntry);
+        fs.writeFile(this.logFilePath, JSON.stringify(logs, null, 2), (err) => {
+          if (err) throw err;
+        });
+      }
+    });
   }
+  
+  
   
   private async handelAppendLogToFileError(logEntry: any, error: any) {
     console.error(error);
@@ -135,6 +137,5 @@ export class UtilsService {
   
   private async sleep(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
-    
   }
 }
