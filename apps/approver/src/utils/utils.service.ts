@@ -5,18 +5,23 @@ import { HttpService } from '@nestjs/axios';
 import { catchError, lastValueFrom, map } from 'rxjs';
 import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
+import * as util from 'util';
 
 @Injectable()
 export class UtilsService {
+  private readonly logFilePath = 'log.json';
+  private logQueue: (() => void)[] = [];
+  private isProcessingQueue = false;
+  
   constructor(
     @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
     private readonly config: ConfigService,
   ) {}
-
+  
   async onModuleInit() {
     this.logger.info('UtilsService initialized');
   }
-
+  
   async sendRequestToInabit<T>(
     graphql: any,
     authorizationToken: string,
@@ -29,21 +34,21 @@ export class UtilsService {
           'Access-Control-Allow-Origin': '*',
         },
       };
-
+      
       return await this.httpClient(InabitEndpointUrl, 'post', graphql, config);
     } catch (error) {
       this.logger.error(this.errorToString(error));
       throw error;
     }
   }
-
+  
   async httpClient(url: string, method: string, data?: any, config?: any) {
     const httpService = new HttpService();
     const request =
       method.toLowerCase() === 'get'
         ? httpService.get(url, config)
         : httpService.post(url, data, config);
-
+    
     let response;
     try {
       response = await lastValueFrom(
@@ -61,78 +66,87 @@ export class UtilsService {
       );
     } catch (error) {
       this.logger.error(
-        `httpClient error: ${this.errorToString(error)} 
+        `httpClient error: ${this.errorToString(error)}
             url: ${url},
             method: ${method}
             request data: ${
-              data && typeof data === 'string'
-                ? data
-                : data && typeof data === 'object'
-                ? JSON.stringify(data)
-                : ''
-            }`,
+          data && typeof data === 'string'
+            ? data
+            : data && typeof data === 'object'
+              ? JSON.stringify(data)
+              : ''
+        }`,
       );
       throw error;
     }
     return response;
   }
-
+  
   errorToString(error: any): string {
     if (!error) return 'unknown error';
-
+    
     if (typeof error === 'string') return error;
-
+    
     if (typeof error === 'object')
       return `${
         error?.message ??
         JSON.stringify(error, Object.getOwnPropertyNames(error))
       }`;
-
+    
     return 'unknown error';
   }
   
-  private readonly logFilePath = 'log.json';
-  
- fileLog(transactionId: string, type: string): void {
+  fileLog(transactionId: string, type: string): void {
     const timestamp = new Date().toISOString();
     this.logger.info(`${type} ${transactionId}`);
     
     const logEntry = { transactionId, type, timestamp };
-    try {
-      this.appendLogToFile(logEntry);
-    } catch (e) {
-      this.handelAppendLogToFileError(logEntry, e);
+    this.enqueueLog(() => this.appendLogToFile(logEntry));
+  }
+  
+  private enqueueLog(logOperation: () => void): void {
+    this.logQueue.push(logOperation);
+    if (!this.isProcessingQueue) {
+      this.processLogQueue();
     }
   }
   
-  private appendLogToFile(logEntry: any): void {
-    fs.readFile(this.logFilePath, 'utf8', (err, data) => {
-      if (err) {
-        if (err.code === 'ENOENT') {
-          // File does not exist, create a new one
-          return fs.writeFile(this.logFilePath, JSON.stringify([logEntry], null, 2), (err) => {
-            if (err) throw err;
-          });
-        } else {
-          throw err;
-        }
-      } else {
-        // File exists, append to it
-        const logs = JSON.parse(data);
-        logs.push(logEntry);
-        fs.writeFile(this.logFilePath, JSON.stringify(logs, null, 2), (err) => {
-          if (err) throw err;
-        });
+  private async processLogQueue(): Promise<void> {
+    this.isProcessingQueue = true;
+    while (this.logQueue.length > 0) {
+      const logOperation = this.logQueue.shift();
+      if (logOperation) {
+        await logOperation();
       }
-    });
+    }
+    this.isProcessingQueue = false;
   }
   
-  
+  private async appendLogToFile(logEntry: any): Promise<void> {
+    try {
+      const readFile = util.promisify(fs.readFile);
+      const writeFile = util.promisify(fs.writeFile);
+      
+      let logs = [];
+      try {
+        const data = await readFile(this.logFilePath, 'utf8');
+        logs = JSON.parse(data);
+      } catch (err) {
+        if (err.code !== 'ENOENT') {
+          throw err;
+        }
+      }
+      logs.push(logEntry);
+      await writeFile(this.logFilePath, JSON.stringify(logs, null, 2));
+    } catch (err) {
+      await this.handelAppendLogToFileError(logEntry, err);
+    }
+  }
   
   private async handelAppendLogToFileError(logEntry: any, error: any) {
     console.error(error);
     await this.sleep(100);
-    return this.appendLogToFile(logEntry)
+    this.enqueueLog(() => this.appendLogToFile(logEntry));
   }
   
   private async sleep(ms: number) {
