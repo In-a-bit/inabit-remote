@@ -4,13 +4,12 @@ import { Logger } from 'winston';
 import { HttpService } from '@nestjs/axios';
 import { catchError, lastValueFrom, map } from 'rxjs';
 import { ConfigService } from '@nestjs/config';
-import * as fs from 'fs';
-import * as util from 'util';
+import { promises as fs } from 'fs';
 
 @Injectable()
 export class UtilsService {
   private readonly logFilePath = 'log.json';
-  private logQueue: (() => void)[] = [];
+  private logQueue: (() => Promise<void>)[] = [];
   private isProcessingQueue = false;
   
   constructor(
@@ -99,12 +98,11 @@ export class UtilsService {
   fileLog(transactionId: string, type: string): void {
     const timestamp = new Date().toISOString();
     this.logger.info(`${type} ${transactionId}`);
-    
     const logEntry = { transactionId, type, timestamp };
     this.enqueueLog(() => this.appendLogToFile(logEntry));
   }
   
-  private enqueueLog(logOperation: () => void): void {
+  private enqueueLog(logOperation: () => Promise<void>): void {
     this.logQueue.push(logOperation);
     if (!this.isProcessingQueue) {
       this.processLogQueue();
@@ -116,7 +114,7 @@ export class UtilsService {
     while (this.logQueue.length > 0) {
       const logOperation = this.logQueue.shift();
       if (logOperation) {
-        await logOperation();
+        await logOperation().catch(err => this.logger.error(`Log operation failed: ${err}`));
       }
     }
     this.isProcessingQueue = false;
@@ -124,32 +122,25 @@ export class UtilsService {
   
   private async appendLogToFile(logEntry: any): Promise<void> {
     try {
-      const readFile = util.promisify(fs.readFile);
-      const writeFile = util.promisify(fs.writeFile);
-      
-      let logs = [];
-      try {
-        const data = await readFile(this.logFilePath, 'utf8');
-        logs = JSON.parse(data);
-      } catch (err) {
-        if (err.code !== 'ENOENT') {
-          throw err;
-        }
-      }
+      const data = await fs.readFile(this.logFilePath, 'utf8').catch(err => {
+        if (err.code === 'ENOENT') return '[]'; // Handle file not found
+        throw err;
+      });
+      const logs = JSON.parse(data);
       logs.push(logEntry);
-      await writeFile(this.logFilePath, JSON.stringify(logs, null, 2));
+      await fs.writeFile(this.logFilePath, JSON.stringify(logs, null, 2));
     } catch (err) {
-      await this.handelAppendLogToFileError(logEntry, err);
+      await this.handleAppendLogToFileError(logEntry, err);
     }
   }
   
-  private async handelAppendLogToFileError(logEntry: any, error: any) {
-    console.error(error);
+  private async handleAppendLogToFileError(logEntry: any, error: any): Promise<void> {
+    this.logger.error(`Error appending log to file: ${error}`);
     await this.sleep(100);
     this.enqueueLog(() => this.appendLogToFile(logEntry));
   }
   
-  private async sleep(ms: number) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }
