@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Post } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Post, Req } from '@nestjs/common';
 import { ApproverService } from './approver.service';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Logger } from 'winston';
@@ -49,5 +49,18 @@ export class ApproverController {
     return this.approverService.mockValidateTransaction(
       transactionValidationData,
     );
+  }
+  @Post('webhook')
+  async testWebhook(
+    @Req() request: Request,
+    @Body() data: any,
+  ): Promise<{ result: boolean }> {
+    console.log(
+      `test webhook ${JSON.stringify(data)}, headers : ${JSON.stringify(
+        request.headers,
+      )}`,
+    );
+    // throw new Error();
+    return { result: true };
   }
 }
