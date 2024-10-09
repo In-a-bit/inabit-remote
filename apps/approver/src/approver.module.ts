@@ -8,6 +8,7 @@ import { UtilsModule } from './utils/utils.module';
 import { KeysModule } from './keys/keys.module';
 import { AuthModule } from './auth/auth.module';
 import { RefreshTokenModule } from './refresh-token/refresh-token.module';
+import { WalletModule } from './wallet/wallet.module';
 import * as winston from 'winston';
 
 @Module({
@@ -39,6 +40,7 @@ import * as winston from 'winston';
     KeysModule,
     AuthModule,
     RefreshTokenModule,
+    WalletModule,
   ],
   controllers: [ApproverController],
   providers: [ApproverService],

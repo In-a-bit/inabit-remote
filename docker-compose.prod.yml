@@ -5,8 +5,11 @@ services:
       context: .
       dockerfile: ./docker/dockerfiles/Dockerfile.approver
       target: production
+    ports:
+      - "3020:3020"
     volumes:
       - ./dat:/app/apps/approver/dat
       - ./refresh:/app/apps/approver/refresh
+      - ./wallet:/app/apps/approver/wallet
  #   environment:
  #     - INABIT_API_BASE_URL=http://host.docker.internal:3000/graphql
