@@ -59,7 +59,8 @@ export class ApproverController {
       walletUpdatedData: WalletUpdatedData;
     },
   ): Promise<boolean> {
-    await this.approverService.handleWalletUpdated(data.walletUpdatedData);
-    return true;
+    return await this.approverService.handleWalletUpdated(
+      data.walletUpdatedData,
+    );
   }
 }
