@@ -59,7 +59,6 @@ export class ApproverController {
       walletUpdatedData: WalletUpdatedData;
     },
   ): Promise<boolean> {
-    console.log(JSON.stringify(data.walletUpdatedData));
     await this.approverService.handleWalletUpdated(data.walletUpdatedData);
     return true;
   }
