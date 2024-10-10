@@ -63,18 +63,23 @@ mkdir dat
 # in the next line, replace <login token> with the token you got.
 echo "<login token>" > refresh/r.dat
 touch dat/k.dat
-# rename the .env.example to .env
-cp .env.example .env
+# copy the .env.example to .env
+cp ./apps/approver/.env.example .env
 ```
 
 Now, Open `.env` file in your text editor, and change the following values:
 
   * APPROVER_URL - set here the URL of your app. 
-  This URL is the URL that this approver app is hosted on. Means - it will get http requests on this URL, from `inabit.com` servers.
+  This URL is the URL that this approver app is hosted on. Means - it will get http requests on this URL, from `inabit.com` servers. **In case you don't have some logic, so for convince, there is an option to set here a predefined url - see [mock validation](#mock-validation) part in this document. 
   
   * SECRET - set here a long secret.
 
   * ORGANIZATION_NAME - set here your organization name.
+
+  * INABIT_API_BASE_URL - should be: https://api.inabit.com/graphql
+
+  * APPROVER_CREATOR_EMAIL - set here your email.
+
   
 Then save the file, and close the editor.
 
@@ -101,8 +106,12 @@ docker logs inabit-remote-approver-1
 }
 ```
 
-**Send this code to you owner.**
-Say your owner to open `inabit` app in his smartphone, and to paste this code when requested.
+**Send this code to you owner.**.
+
+
+Ask the owner to open the inabit app on their smartphone. They should have already received a notification from the inabit app requesting approval for the new Approver.
+
+The owner should tap on the notification and enter the provided code when prompted.
 
 After this step is done, you are ready to go!
 
