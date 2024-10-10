@@ -41,7 +41,7 @@ export type CreateSignedTransactionApprovalResponse = {
 
 export type GetWalletKeysResponse = {
   data: {
-    WalletKeysApiSigner: {
+    walletKeysApiSigner: {
       walletKeys: string;
     };
   };

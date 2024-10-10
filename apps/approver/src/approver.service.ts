@@ -351,7 +351,7 @@ export class ApproverService {
           getWalletKeysRequest,
           accessToken,
         )
-      )?.data.WalletKeysApiSigner?.walletKeys;
+      );
     } catch (error) {
       this.logger.error(
         `getWalletKeysRequest error for organization ${organizationId}, error: ${this.utilsService.errorToString(
@@ -359,7 +359,7 @@ export class ApproverService {
         )}`,
       );
     }
-    return result;
+    return result?.data?.walletKeysApiSigner?.walletKeys;
   }
 
   mockValidateTransaction(
