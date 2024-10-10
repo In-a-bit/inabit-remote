@@ -38,3 +38,11 @@ export type CreateSignedTransactionApprovalResponse = {
     result: boolean;
   };
 };
+
+export type GetWalletKeysResponse = {
+  data: {
+    WalletKeysApiSigner: {
+      walletKeys: string;
+    };
+  };
+};
