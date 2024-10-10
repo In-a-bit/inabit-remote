@@ -1,10 +1,11 @@
-import { Body, Controller, Get, Inject, Post } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Post, Req } from '@nestjs/common';
 import { ApproverService } from './approver.service';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Logger } from 'winston';
 import { EnumApproverPairingStatus } from './utils/enums/EnumApproverPairingStatus';
 import { TransactionApprovalRequestData } from './utils/types/TransactionApprovalRequestData';
 import { TransactionValidationData } from './utils/types/TransactionValidationData';
+import { WalletUpdatedData } from './utils/types/WalletUpdatedData';
 
 @Controller()
 export class ApproverController {
@@ -48,6 +49,18 @@ export class ApproverController {
   ): Promise<{ approved: boolean }> {
     return this.approverService.mockValidateTransaction(
       transactionValidationData,
+    );
+  }
+
+  @Post('wallet/updated')
+  async walletUpdateEvent(
+    @Body()
+    data: {
+      walletUpdatedData: WalletUpdatedData;
+    },
+  ): Promise<boolean> {
+    return await this.approverService.handleWalletUpdated(
+      data.walletUpdatedData,
     );
   }
 }
