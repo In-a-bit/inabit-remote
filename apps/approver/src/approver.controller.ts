@@ -5,6 +5,7 @@ import { Logger } from 'winston';
 import { EnumApproverPairingStatus } from './utils/enums/EnumApproverPairingStatus';
 import { TransactionApprovalRequestData } from './utils/types/TransactionApprovalRequestData';
 import { TransactionValidationData } from './utils/types/TransactionValidationData';
+import { WalletUpdatedData } from './utils/types/WalletUpdatedData';
 
 @Controller()
 export class ApproverController {
@@ -50,17 +51,16 @@ export class ApproverController {
       transactionValidationData,
     );
   }
-  @Post('webhook')
-  async testWebhook(
-    @Req() request: Request,
-    @Body() data: any,
-  ): Promise<{ result: boolean }> {
-    console.log(
-      `test webhook ${JSON.stringify(data)}, headers : ${JSON.stringify(
-        request.headers,
-      )}`,
+
+  @Post('wallet/updated')
+  async walletUpdateEvent(
+    @Body()
+    data: {
+      walletUpdatedData: WalletUpdatedData;
+    },
+  ): Promise<boolean> {
+    return await this.approverService.handleWalletUpdated(
+      data.walletUpdatedData,
     );
-    // throw new Error();
-    return { result: true };
   }
 }
