@@ -4,28 +4,29 @@ This standalone project is designed to be deployed on a user's own server, enabl
 
 ## Functionality
 
-Upon running, the application must successfully initialize and communicate with Inabit. This involves several steps depending on the initiation state.
-After this **Approver app** is approved by the owner and pairing process is completed, than, the handling of pending transactions flow may proceed naturally.
+Upon running, the application must successfully initialize and communicate with Inabit. This involves several steps depending on the initiation state. In other words, this means that there is difference between the first run of the **Approver app** and subsequent (recurring) runs.
+
+During the first run, the **Approver app** is approved by the owner, and the pairing process is completed. In subsequent (recurring) runs, the application can proceed with handling pending transactions as expected.
 
 ### First Run
 
-There is difference between the first run of the **Approver app** and versus recurring runs.
-
 Assuming you received all the details from our representatives, and You start the **Approver app** docker as described, so then
-During the first run, a pairing process is initiated. The **Approver app** will do these steps:
+During the first run, a pairing process is initiated. 
+
+The **Approver app** will do these steps:
 
 1. Logging into Inabit using the provided login token, that you will receive from our team.
 2. Validating the user's current state.
-3. Requesting a pairing token.
+3. Requesting a pairing code.
 4. Producing an encrypted key used for signing, saving it to a mapped volume.
-5. Sending pairing data to Inabit and requesting the 'Owner' to authorize the approver. **After this step, you will need to get the the _pairing token_ from the docker logs, and to send it to the owner of your Inabit account**.
+5. Sending pairing data to Inabit and requesting the 'Owner' to authorize the approver. **After this step, you will need to get the the _pairing code_ from the docker logs, and pass it to the owner of your Inabit account for pairing completion.
 6. Refreshing the login token i.e. acquiring automatically a new valid login token.
 
 
 > If anything goes wrong during the initiation stage, the approver initiation process will be aborted.
 
 
-### Recurring Runs
+### Subsequent (recurring) Runs
 
 For subsequent runs, after validating that the user is paired, the application continues its operation as usual.
 
@@ -38,11 +39,11 @@ For subsequent runs, after validating that the user is paired, the application c
   A. `apiAdmin` user.
   B. `apiSigner` user.
   
-This users should be  provided by our representatives.
+These users are created in your Inabit account by our representatives.
 
-3. You have received a *login token* that is related to an "apiSigner" user. This token should have been provided to you by our representatives.
+3. You have received a *login token* that is related to your "apiSigner" user. This token should have been provided to you by our representatives.
  
-4. Please verify that host can access `api.inabit.com`  server (whitelisted IPs and ports).
+4. Please verify that host can access `api.inabit.com` server (whitelisted IPs and ports).
 
 5. Please be aware that for completion of the process, you will need interact with your inabit account owner.
 
@@ -62,7 +63,6 @@ mkdir dat
 # save the login token in file.
 # in the next line, replace <login token> with the token you got.
 echo "<login token>" > refresh/r.dat
-touch dat/k.dat
 # copy the .env.example to .env
 cp ./apps/approver/.env.example .env
 ```
@@ -106,7 +106,7 @@ docker logs inabit-remote-approver-1
 }
 ```
 
-**Send this code to you owner.**.
+**Pass this code to you owner.**.
 
 
 Ask the owner to open the inabit app on their smartphone. They should have already received a notification from the inabit app requesting approval for the new Approver.
@@ -126,7 +126,7 @@ From within the root directory `inabit/inabit-remote`:
 
  ### Set Login Token
  
- The login token is approver's token valid for 30 days, allowing authentication with Inabit.
+ The login token is an approver's token valid for 30 days, allowing authentication with Inabit.
 
  The token is automatically refreshed, i.e. switched to a new 30 days valid token, 
 
@@ -252,8 +252,8 @@ In order to handle transaction approvals:
 
       ```env
                  
-            VALIDATION_CALLBACK_URL=http://example.com./validation
-            # replace the domain with the URL of your validation login implemented endpoint.
+            VALIDATION_CALLBACK_URL=http://your-domain.com/validation
+            # replace the domain with the URL of your validation logics implemented endpoint.
             
       ```
 
@@ -267,7 +267,7 @@ In order to handle transaction approvals:
             transactionId: string;
             transactionType: string;   // Withdrawal / Deposit / Swap
             initiatorId: string;
-            organizaationId: string;
+            organizationId: string;
             network: string;
             walletId: string;
             walletAddress: string;
