@@ -3,13 +3,18 @@ import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Logger } from 'winston';
 import { UtilsService } from './utils/utils.service';
 import { InitiationService } from './initiation/initiation.service';
-import { CreateSignedTransactionApprovalResponse } from './utils/types/InabitResponseTypes';
+import {
+  CreateSignedTransactionApprovalResponse,
+  GetWalletKeysResponse,
+} from './utils/types/InabitResponseTypes';
 import { AuthService } from './auth/auth.service';
 import { KeysService } from './keys/keys.service';
 import { ConfigService } from '@nestjs/config';
 import { EnumPolicyApprovalStatus } from './utils/enums/EnumPolicyApprovalStatus';
 import { TransactionValidationData } from './utils/types/TransactionValidationData';
 import { TransactionApprovalRequestData } from './utils/types/TransactionApprovalRequestData';
+import { WalletUpdatedData } from './utils/types/WalletUpdatedData';
+import { WalletKeysService } from './wallet/wallet.service';
 
 @Injectable()
 export class ApproverService {
@@ -18,6 +23,7 @@ export class ApproverService {
     private readonly authService: AuthService,
     private readonly initiationService: InitiationService,
     private readonly keysService: KeysService,
+    private readonly walletKeysService: WalletKeysService,
     private readonly configService: ConfigService,
     @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
   ) {}
@@ -269,6 +275,91 @@ export class ApproverService {
       );
       throw error;
     }
+  }
+
+  async handleWalletUpdated(
+    walletUpdatedData: WalletUpdatedData,
+  ): Promise<boolean> {
+    try {
+      this.logger.info(
+        `[handleWalletUpdated] Received a wallet updated notification, fetching wallet keys data: ${JSON.stringify(
+          walletUpdatedData,
+        )}`,
+      );
+
+      const walletKeys = await this.getWalletKeys(
+        walletUpdatedData.organizationId,
+      );
+
+      if (!walletKeys) {
+        this.logger.error(
+          `[handleWalletUpdated] Failed fetching wallet keys data: ${JSON.stringify(
+            walletUpdatedData,
+          )}`,
+        );
+        return false;
+      }
+
+      await this.walletKeysService.saveWalletKeys(walletKeys);
+      this.logger.error(
+        `[handleWalletUpdated] Successful fetching and saving wallet keys data: ${JSON.stringify(
+          walletUpdatedData,
+        )}`,
+      );
+      return true;
+    } catch (error) {
+      this.logger.error(
+        `[handleWalletUpdated] Failed fetching and saving wallet keys data: ${JSON.stringify(
+          walletUpdatedData,
+        )}`,
+      );
+      return false;
+    }
+  }
+
+  async getWalletKeys(organizationId: string): Promise<string | undefined> {
+    const accessToken = await this.authService.login();
+
+    const apiSigner = await this.authService.getApiSignerState(accessToken);
+
+    if (!apiSigner) {
+      throw new Error('Approver is not registered, contact support.');
+    }
+
+    if (this.authService.pairingNeeded(apiSigner)) {
+      this.logger.info(
+        'Approver needs to be paired before accessing wallet dat',
+      );
+      throw new Error('Approver is not paired, contact support.');
+    }
+
+    const getWalletKeysRequest = {
+      query: `query WalletKeysApiSigner($where: WalletKeysWhereUniqueInput!) {\r\n  walletKeysApiSigner(where: $where) {\r\n    walletKeys\r\n  }\r\n}`,
+      variables: {
+        where: {
+          organization: {
+            id: organizationId,
+          },
+        },
+      },
+    };
+
+    let result;
+    try {
+      result = (
+        await this.utilsService.sendRequestToInabit<GetWalletKeysResponse>(
+          getWalletKeysRequest,
+          accessToken,
+        )
+      )?.data.WalletKeysApiSigner?.walletKeys;
+    } catch (error) {
+      this.logger.error(
+        `getWalletKeysRequest error for organization ${organizationId}, error: ${this.utilsService.errorToString(
+          error,
+        )}`,
+      );
+    }
+    return result;
   }
 
   mockValidateTransaction(

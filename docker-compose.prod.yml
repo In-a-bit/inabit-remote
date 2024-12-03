@@ -5,12 +5,11 @@ services:
       context: .
       dockerfile: ./docker/dockerfiles/Dockerfile.approver
       target: production
-      tags: 
-        - europe-west1-docker.pkg.dev/inabit-mgmt/apps-eu/approver:latest
+    ports:
+      - "3020:3020"
     volumes:
       - ./dat:/app/apps/approver/dat
       - ./refresh:/app/apps/approver/refresh
-    ports:
-      - "3020:3020"
-    env_file:
-      - ./.env
+      - ./wallet:/app/apps/approver/wallet
+ #   environment:
+ #     - INABIT_API_BASE_URL=http://host.docker.internal:3000/graphql
