@@ -97,6 +97,7 @@ export class ApproverService {
     retryCount = 1,
   ): Promise<boolean> {
     try {
+      this.utilsService.fileLog(transactionApprovalRequestData.transactionId, "Approver Received")
       this.logger.info(
         `Received transaction for approval: ${JSON.stringify(
           transactionApprovalRequestData,
@@ -130,6 +131,7 @@ export class ApproverService {
           : EnumPolicyApprovalStatus.Rejected,
         signedTransactionData,
       );
+      this.utilsService.fileLog(transactionApprovalRequestData.transactionId, "Approver Sent")
       this.logger.info(
         `transaction ${transactionApprovalRequestData.transactionId} approval sent: (approved: ${validationResponse.approved})`,
       );
@@ -301,7 +303,7 @@ export class ApproverService {
       }
 
       await this.walletKeysService.saveWalletKeys(walletKeys);
-      this.logger.error(
+      this.logger.info(
         `[handleWalletUpdated] Successful fetching and saving wallet keys data: ${JSON.stringify(
           walletUpdatedData,
         )}`,
@@ -311,7 +313,7 @@ export class ApproverService {
       this.logger.error(
         `[handleWalletUpdated] Failed fetching and saving wallet keys data: ${JSON.stringify(
           walletUpdatedData,
-        )}`,
+        )}, error: ${this.utilsService.errorToString(error)}`,
       );
       return false;
     }
@@ -323,14 +325,14 @@ export class ApproverService {
     const apiSigner = await this.authService.getApiSignerState(accessToken);
 
     if (!apiSigner) {
-      throw new Error('Approver is not registered, contact support.');
+      const errorMsg = `[getWalletKeys] Approver is not registered, contact support.  organization ${organizationId}`;
+      throw new Error(errorMsg);
     }
 
     if (this.authService.pairingNeeded(apiSigner)) {
-      this.logger.info(
-        'Approver needs to be paired before accessing wallet dat',
-      );
-      throw new Error('Approver is not paired, contact support.');
+      const errorMsg = `[getWalletKeys] Approver needs to be paired before accessing wallet keys. organization ${organizationId}`;
+      this.logger.error(errorMsg);
+      throw new Error(errorMsg);
     }
 
     const getWalletKeysRequest = {
@@ -346,12 +348,11 @@ export class ApproverService {
 
     let result;
     try {
-      result = (
+      result =
         await this.utilsService.sendRequestToInabit<GetWalletKeysResponse>(
           getWalletKeysRequest,
           accessToken,
-        )
-      )?.data.WalletKeysApiSigner?.walletKeys;
+        );
     } catch (error) {
       this.logger.error(
         `getWalletKeysRequest error for organization ${organizationId}, error: ${this.utilsService.errorToString(
@@ -359,7 +360,7 @@ export class ApproverService {
         )}`,
       );
     }
-    return result;
+    return result?.data?.walletKeysApiSigner?.walletKeys;
   }
 
   mockValidateTransaction(
