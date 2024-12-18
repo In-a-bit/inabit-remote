@@ -31,7 +31,8 @@
     "nest-winston": "1.8.0",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.2.0",
-    "winston": "3.8.2"
+    "winston": "3.8.2",
+    "openpgp": "^5.10.2"
   },
   "devDependencies": {
     "@nestjs/cli": "^9.0.0",

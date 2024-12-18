@@ -10,6 +10,7 @@ import { AuthModule } from './auth/auth.module';
 import { RefreshTokenModule } from './refresh-token/refresh-token.module';
 import { WalletModule } from './wallet/wallet.module';
 import * as winston from 'winston';
+import { SharedKeyModule } from './shared-key/shared-key.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import * as winston from 'winston';
     AuthModule,
     RefreshTokenModule,
     WalletModule,
+    SharedKeyModule,
   ],
   controllers: [ApproverController],
   providers: [ApproverService],

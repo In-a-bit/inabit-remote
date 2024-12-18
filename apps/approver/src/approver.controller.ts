@@ -23,7 +23,10 @@ export class ApproverController {
   async pairing(@Body() body: { pairing: string }): Promise<boolean> {
     const { pairing } = body;
     if (pairing === EnumApproverPairingStatus.Paired) {
-      this.logger.info('Approver is paired.');
+      this.logger.info(
+        'Approver is paired. Triggering get shared key request...',
+      );
+      await this.approverService.triggerGetSharedKeyRequest();
     } else {
       this.logger.info(`Approver pairing ${pairing}}.`);
     }
@@ -61,6 +64,18 @@ export class ApproverController {
   ): Promise<boolean> {
     return await this.approverService.handleWalletUpdated(
       data.walletUpdatedData,
+    );
+  }
+
+  @Post('shared-key')
+  async sharedKey(
+    @Body()
+    data: {
+      encryptedSharedKey: string;
+    },
+  ): Promise<boolean> {
+    return this.approverService.handleGetSharedKeyResponse(
+      data.encryptedSharedKey,
     );
   }
 }
