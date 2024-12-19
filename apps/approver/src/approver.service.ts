@@ -415,7 +415,9 @@ export class ApproverService implements OnModuleInit, OnApplicationBootstrap {
   async handleGetSharedKeyResponse(
     encryptedSharedKeyData: string,
   ): Promise<boolean> {
-    return await this.sharedKeyService.handleSharedKey(encryptedSharedKeyData);
+    return await this.sharedKeyService.decryptAndSaveSharedKey(
+      encryptedSharedKeyData,
+    );
   }
 
   async triggerGetSharedKeyRequest(): Promise<{ success: boolean }> {

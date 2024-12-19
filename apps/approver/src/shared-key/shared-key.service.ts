@@ -21,10 +21,10 @@ export class SharedKeyService {
   }
 
   // Shared Key Methods:
-  async handleSharedKey(encryptedSharedKey: string) {
+  async decryptAndSaveSharedKey(encryptedSharedKey: string) {
     try {
       console.log(
-        '[handleSharedKey] Received encrypted shared key:',
+        '[decryptAndSaveSharedKey] Received encrypted shared key:',
         encryptedSharedKey,
       );
 
@@ -37,7 +37,7 @@ export class SharedKeyService {
       }
     } catch (error) {
       this.logger.error(
-        `[handleSharedKey] error: ${this.utilsService.errorToString(error)}`,
+        `[decryptAndSaveSharedKey] error: ${this.utilsService.errorToString(error)}`,
       );
     }
     return false;
