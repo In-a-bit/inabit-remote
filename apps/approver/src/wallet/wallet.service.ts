@@ -29,8 +29,8 @@ export class WalletKeysService {
     const filePath = this.configService.get('WALLET_KEYS_FILE_PATH', 'wallet');
     const fileName = this.getWalletKeysFileName();
     const appRootPath = await path.resolve('./');
-    const refreshFilePath = `${appRootPath}/${filePath}/${fileName}`;
-    return refreshFilePath;
+    const walletFilePath = `${appRootPath}/${filePath}/${fileName}`;
+    return walletFilePath;
   }
 
   private getWalletKeysFileName() {

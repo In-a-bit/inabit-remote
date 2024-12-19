@@ -46,3 +46,7 @@ export type GetWalletKeysResponse = {
     };
   };
 };
+
+export type GetSharedKeyApiSignerResponse = {
+  success: boolean;
+};
