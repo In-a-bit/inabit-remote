@@ -32,6 +32,17 @@ export class SharedKeyService {
         encryptedSharedKey,
       );
 
+      console.log(
+          '[decryptAndSaveSharedKey] Received decrypted shared key:',
+          decryptedSharedKey,
+      );
+
+      console.log(
+          '[decryptAndSaveSharedKey] Received encrypted shared key:',
+          encryptedSharedKey,
+      );
+
+
       if (decryptedSharedKey) {
         return await this.saveSharedKey(decryptedSharedKey);
       }
