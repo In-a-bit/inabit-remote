@@ -12,3 +12,4 @@ services:
       - ./refresh:/app/apps/approver/refresh
       - ./wallet:/app/apps/approver/wallet
       - ./sk:/app/apps/approver/sk
+      - ./enc:/app/apps/approver/enc
