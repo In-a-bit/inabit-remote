@@ -21,6 +21,7 @@ import { TransactionApprovalRequestData } from './utils/types/TransactionApprova
 import { WalletUpdatedData } from './utils/types/WalletUpdatedData';
 import { WalletKeysService } from './wallet/wallet.service';
 import { SharedKeyService } from './shared-key/shared-key.service';
+import { EncryptedSharedKeyMessage } from './utils/types/EncryptedSharedKeyMessage';
 
 @Injectable()
 export class ApproverService implements OnModuleInit, OnApplicationBootstrap {
@@ -463,6 +464,64 @@ export class ApproverService implements OnModuleInit, OnApplicationBootstrap {
       signedEncryptionPublicKey,
       accessToken,
     );
+  }
+
+  async setSharedKey(): Promise<{ success: boolean }> {
+    try {
+      if (await this.sharedKeyService.sharedKeyExists()) {
+        const accessToken = await this.authService.login();
+        const apiSigner = await this.authService.getApiSignerState(accessToken);
+
+        if (!apiSigner) {
+          const errorMsg = `[sendSharedKey] Approver is not registered, contact support.`;
+          this.logger.error(errorMsg);
+          throw new Error(errorMsg);
+        }
+
+        if (apiSigner.pairingStatus === 'Paired') {
+          const encryptedSharedKeyMessage: EncryptedSharedKeyMessage =
+            await this.sharedKeyService.getEncryptedSharedKeyMessage(
+              accessToken,
+            );
+
+          if (!encryptedSharedKeyMessage) {
+            this.logger.error(
+              `[setSharedKey] error: could not get an encrypted shared key message.`,
+            );
+            return { success: false };
+          }
+
+          const signedEncryptedSharedKeyMessage =
+            await this.keysService.signEncryptedSharedKeyMessage(
+              JSON.stringify(encryptedSharedKeyMessage),
+            );
+
+          if (!signedEncryptedSharedKeyMessage) {
+            this.logger.error(
+              `[setSharedKey] error: could not sign encrypted shared key message.`,
+            );
+            return { success: false };
+          }
+
+          return await this.sharedKeyService.setSharedKey(
+            accessToken,
+            signedEncryptedSharedKeyMessage,
+          );
+        }
+        this.logger.info(
+          `[setSharedKey] skipped, Approver is currently not paired.`,
+        );
+      } else {
+        this.logger.info(`[setSharedKey] skipped, shared key does not exists.`);
+      }
+    } catch (error) {
+      this.logger.error(
+        `[setSharedKey] Error occurred: ${this.utilsService.errorToString(
+          error,
+        )}`,
+      );
+    }
+    return { success: false };
   }
 
   private async getSignedEncryptionPublicKey(): Promise<string> {
