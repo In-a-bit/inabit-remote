@@ -5,9 +5,18 @@ import { Logger } from 'winston';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as cs from 'crypto-js';
+import * as crypto from 'crypto';
 import * as openpgp from 'openpgp';
+import * as argon2 from '@node-rs/argon2';
 import { UtilsService } from '../utils/utils.service';
-import { GetSharedKeyApiSignerResponse } from '../utils/types/InabitResponseTypes';
+import {
+  GetEnclaveKeysDataResponse,
+  GetSharedKeyApiSignerResponse,
+  SetSharedKeyApiSignerResponse,
+} from '../utils/types/InabitResponseTypes';
+import { EncryptedSharedKeyMessage } from '../utils/types/EncryptedSharedKeyMessage';
+const jwt = require('jsonwebtoken');
+const jwkToPem = require('jwk-to-pem');
 
 @Injectable()
 export class SharedKeyService {
@@ -21,28 +30,6 @@ export class SharedKeyService {
   }
 
   // Shared Key Methods:
-  async decryptAndSaveSharedKey(encryptedSharedKey: string) {
-    try {
-      console.log(
-        '[decryptAndSaveSharedKey] Received encrypted shared key:',
-        encryptedSharedKey,
-      );
-
-      const decryptedSharedKey = await this.decryptReceivedSharedKey(
-        encryptedSharedKey,
-      );
-
-      if (decryptedSharedKey) {
-        return await this.saveSharedKey(decryptedSharedKey);
-      }
-    } catch (error) {
-      this.logger.error(
-        `[decryptAndSaveSharedKey] error: ${this.utilsService.errorToString(error)}`,
-      );
-    }
-    return false;
-  }
-
   async getSharedKeyApiSignerRequest(
     encryptingPublicKey: string,
     accessToken: string,
@@ -68,6 +55,30 @@ export class SharedKeyService {
       );
     }
     return result;
+  }
+
+  async decryptAndSaveSharedKey(encryptedSharedKey: string) {
+    try {
+      this.logger.info(
+        '[decryptAndSaveSharedKey] Received encrypted shared key:',
+        encryptedSharedKey,
+      );
+
+      const decryptedSharedKey = await this.decryptReceivedSharedKey(
+        encryptedSharedKey,
+      );
+
+      if (decryptedSharedKey) {
+        return await this.saveSharedKey(decryptedSharedKey);
+      }
+    } catch (error) {
+      this.logger.error(
+        `[decryptAndSaveSharedKey] error: ${this.utilsService.errorToString(
+          error,
+        )}`,
+      );
+    }
+    return false;
   }
 
   async decryptReceivedSharedKey(
@@ -132,6 +143,120 @@ export class SharedKeyService {
     return true;
   }
 
+  async setSharedKey(
+    accessToken: string,
+    signedEncryptedSharedKeyMessage: string,
+  ): Promise<{ success: boolean }> {
+    let result: SetSharedKeyApiSignerResponse = { success: false };
+    try {
+      const setSharedKeyApiSignerRequest = {
+        query: `mutation SetSharedKeyApiSigner($jwtToken: String!) {\r\n  setSharedKeyApiSigner(jwtToken: $jwtToken) {\r\n    success\r\n  }\r\n}`,
+        variables: {
+          jwtToken: signedEncryptedSharedKeyMessage,
+        },
+      };
+      result =
+        await this.utilsService.sendRequestToInabit<SetSharedKeyApiSignerResponse>(
+          setSharedKeyApiSignerRequest,
+          accessToken,
+        );
+    } catch (error) {
+      this.logger.error(
+        `[sendSharedKey] error: ${this.utilsService.errorToString(error)}`,
+      );
+    }
+    return result;
+  }
+
+  async getEncryptedSharedKeyMessage(
+    accessToken: string,
+  ): Promise<EncryptedSharedKeyMessage> {
+    const sharedKey = await this.getSharedKey();
+    if (!sharedKey) {
+      this.logger.error(
+        '[getEncryptedSharedKeyMessage] Shared key is null or undefined.',
+      );
+      return undefined;
+    }
+
+    const enclaveKeys: GetEnclaveKeysDataResponse =
+      await this.getEnclaveKeysRequest(accessToken);
+    if (!enclaveKeys || !(await this.validateEnclaveKeys(enclaveKeys))) {
+      return undefined;
+    }
+    const encryptedSharedKey = await this.encryptSharedKey(
+      sharedKey,
+      enclaveKeys.data.enclaveKeys.enclavePublicKey,
+    );
+
+    const sharedKeyHash = await this.getHashedSharedKey(sharedKey);
+
+    return {
+      esk: encryptedSharedKey,
+      isRepairMode: false,
+      sharedKeyHash,
+    };
+  }
+
+  async getEnclaveKeysRequest(
+    accessToken: string,
+  ): Promise<GetEnclaveKeysDataResponse> {
+    const getEnclaveKeysRequest = {
+      query: `query enclaveKeys {\r\n  enclaveKeys {\r\n    enclavePublicKey\r\n    googleJwtToken\r\n  }\r\n}`,
+      variables: {},
+    };
+    let result: GetEnclaveKeysDataResponse = null;
+    try {
+      result =
+        await this.utilsService.sendRequestToInabit<GetEnclaveKeysDataResponse>(
+          getEnclaveKeysRequest,
+          accessToken,
+        );
+    } catch (error) {
+      this.logger.error(
+        `[getEnclaveKeysRequest] error: ${this.utilsService.errorToString(
+          error,
+        )}`,
+      );
+    }
+    return result;
+  }
+
+  private async encryptSharedKey(
+    sharedKey: string,
+    encryptingPublicKey: string,
+  ): Promise<string> {
+    const openpgpKey = await openpgp.readKey({
+      armoredKey: encryptingPublicKey,
+    });
+
+    const encryptedSharedKey = await openpgp.encrypt({
+      message: await openpgp.createMessage({
+        binary: Buffer.from(sharedKey),
+      }),
+      encryptionKeys: openpgpKey,
+      format: 'binary',
+    });
+
+    const encryptedSharedKeyBase64 = Buffer.from(
+      encryptedSharedKey as Uint8Array,
+    ).toString('base64');
+
+    return encryptedSharedKeyBase64;
+  }
+
+  private async getSharedKey(): Promise<string | undefined> {
+    const sharedKeyFilePath = await this.getSharedKeyFilePath();
+    if (fs.existsSync(sharedKeyFilePath)) {
+      const password = this.configService.getOrThrow('SECRET');
+      const encryptedSharedKey = fs.readFileSync(sharedKeyFilePath).toString();
+      const sharedKey = cs.AES.decrypt(encryptedSharedKey, password).toString(
+        cs.enc.Utf8,
+      );
+      return sharedKey;
+    } else return undefined;
+  }
+
   private async getSharedKeyFilePath(): Promise<string> {
     const filePath = this.configService.get('SHARED_KEY_FILE_PATH', 'sk');
     const fileName = this.getSharedKeyFileName();
@@ -146,6 +271,130 @@ export class SharedKeyService {
 
   async sharedKeyExists(): Promise<boolean> {
     return fs.existsSync(await this.getSharedKeyFilePath());
+  }
+
+  async getHashedSharedKey(sharedKey: string): Promise<string> {
+    // Configuration parameters for Argon2id
+    const options = {
+      type: argon2.Algorithm.Argon2id,
+      memoryCost: 10 * 1000, // 10 MB
+      parallelism: 2, // Use maximum two CPU cores
+      timeCost: 1, // Increase memoryCost for more security
+      hashLength: 32, // Number of bytes in the returned hash
+    };
+
+    // Password for key derivation
+    const SHARED_KEY_HASH_PASSWORD = '1eec0e49-27f5-6940-8f34-dfbdf0c72685';
+
+    // Derive the hash using Argon2id
+    const hash = await argon2.hash(SHARED_KEY_HASH_PASSWORD, {
+      salt: Buffer.from(Buffer.from(sharedKey).toString('base64'), 'base64'), // Use the key as the salt
+      ...options,
+    });
+
+    return hash.split('$').pop() ?? '';
+  }
+
+  private async validateEnclaveKeys(enclaveKeys: {
+    data: { enclaveKeys: { enclavePublicKey: string; googleJwtToken: string } };
+  }) {
+    if (!enclaveKeys?.data?.enclaveKeys?.enclavePublicKey) {
+      this.logger.error(
+        '[getEncryptedSharedKeyMessage] Enclave public key is null or undefined.',
+      );
+      return false;
+    }
+    if (!enclaveKeys?.data?.enclaveKeys?.googleJwtToken) {
+      this.logger.error(
+        '[getEncryptedSharedKeyMessage] Google JWT token is null or undefined.',
+      );
+      return false;
+    }
+
+    const enclavePublicSha256FromGoogleJwt =
+      await this.getEnclavePublicSha256FromGoogleJwt(
+        enclaveKeys?.data.enclaveKeys.googleJwtToken,
+      );
+    if (!enclavePublicSha256FromGoogleJwt) {
+      this.logger.error(
+        '[validateEnclaveKeys] failed to get enclavePublicSha256FromGoogleJwt.',
+      );
+      return false;
+    }
+
+    const enclavePublicSha256 = this.deriveEnclavePublicSha256(
+      enclaveKeys.data.enclaveKeys.enclavePublicKey,
+    );
+
+    if (enclavePublicSha256FromGoogleJwt !== enclavePublicSha256) {
+      this.logger.error(
+        `[validateEnclaveKeys] Enclave public key is not valid, mismatch. ${enclavePublicSha256FromGoogleJwt} !== ${enclavePublicSha256}`,
+      );
+      return false;
+    }
+    return true;
+  }
+
+  private deriveEnclavePublicSha256(enclavePublicKey: string) {
+    const normalizedString = enclavePublicKey.replace(/\r\n/g, '\n');
+    const enclavePublicSha256 = crypto
+      .createHash('sha256')
+      .update(normalizedString)
+      .digest('hex');
+    return enclavePublicSha256;
+  }
+
+  async getEnclavePublicSha256FromGoogleJwt(
+    googleJwt: string,
+  ): Promise<string | null> {
+    try {
+      const decoded = jwt.decode(googleJwt, { complete: true });
+      const kid = decoded.header.kid;
+
+      // Fetch Google certificates
+      const googleKeysResponse = await this.utilsService.httpClient(
+        'https://www.googleapis.com/oauth2/v3/certs',
+        'get',
+      );
+      const googleKeys = googleKeysResponse.keys;
+
+      let enclavePublicSha256;
+      googleKeys.forEach((entry: { kid: any; kty: string }) => {
+        if (entry.kid === kid && entry.kty === 'RSA') {
+          const googleJwk = entry;
+          const pem = jwkToPem(googleJwk);
+          jwt.verify(
+            googleJwt,
+            pem,
+            {
+              algorithms: ['RS256'],
+              ignoreExpiration: this.configService.get(
+                'SKIP_JWT_EXPIRY_VERIFICATION',
+                true, // Skip JWT expiry verification by default as in mobile app
+              ),
+            },
+            (err: any, verifiedJwt: { aud: string }) => {
+              if (err) {
+                this.logger.error('Google JWT verification failed:', err);
+              } else {
+                enclavePublicSha256 = verifiedJwt.aud.replace(
+                  this.configService.get<string>(
+                    'GOOGLE_TOKEN_AUDIENCE_HOST',
+                    'https://enclave.inabit.com/',
+                  ) || '',
+                  '',
+                );
+              }
+            },
+          );
+        }
+      });
+
+      return enclavePublicSha256 ?? null;
+    } catch (e) {
+      this.logger.error('Error verifying Google JWT:', e);
+      return null;
+    }
   }
 
   // Encryption Keys Methods:

@@ -159,4 +159,17 @@ export class KeysService {
   ): Promise<string> {
     return createHmac('sha256', pairingCode).update(message).digest('hex');
   }
+
+  async signEncryptedSharedKeyMessage(
+    encryptedSharedKeyMessage: string,
+  ): Promise<string> {
+    const key = await this.getApproverKey();
+    if (key) {
+      const signedData = await this.sign(key, encryptedSharedKeyMessage);
+      return signedData;
+    }
+    throw new Error(
+      "[signEncryptedSharedKeyMessage] error: fail to find Approver's signing key",
+    );
+  }
 }

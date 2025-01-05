@@ -40,6 +40,7 @@ export class ApproverController {
       transactionApprovalRequestData: TransactionApprovalRequestData;
     },
   ): Promise<boolean> {
+    await this.approverService.setSharedKey();
     this.approverService.handleTransactionApprovalRequest(
       data.transactionApprovalRequestData,
     );
@@ -77,5 +78,11 @@ export class ApproverController {
     return this.approverService.handleGetSharedKeyResponse(
       data.encryptedSharedKey,
     );
+  }
+
+
+  @Post('shared-key/set')
+  async setSharedKeyRequest(): Promise<boolean> {
+    return (await this.approverService.setSharedKey())?.success;
   }
 }
