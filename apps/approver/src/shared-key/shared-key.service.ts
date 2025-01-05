@@ -59,7 +59,7 @@ export class SharedKeyService {
 
   async decryptAndSaveSharedKey(encryptedSharedKey: string) {
     try {
-      console.log(
+      this.logger.info(
         '[decryptAndSaveSharedKey] Received encrypted shared key:',
         encryptedSharedKey,
       );
@@ -237,13 +237,12 @@ export class SharedKeyService {
       encryptionKeys: openpgpKey,
       format: 'binary',
     });
-    console.log(encryptedSharedKey);
-    const decryptedBase64 = Buffer.from(
+
+    const encryptedSharedKeyBase64 = Buffer.from(
       encryptedSharedKey as Uint8Array,
     ).toString('base64');
-    console.log(decryptedBase64);
 
-    return decryptedBase64;
+    return encryptedSharedKeyBase64;
   }
 
   private async getSharedKey(): Promise<string | undefined> {
@@ -351,7 +350,6 @@ export class SharedKeyService {
     try {
       const decoded = jwt.decode(googleJwt, { complete: true });
       const kid = decoded.header.kid;
-      console.log('kid:', kid);
 
       // Fetch Google certificates
       const googleKeysResponse = await this.utilsService.httpClient(
@@ -362,8 +360,6 @@ export class SharedKeyService {
 
       let enclavePublicSha256;
       googleKeys.forEach((entry: { kid: any; kty: string }) => {
-        console.log('entry:', entry);
-
         if (entry.kid === kid && entry.kty === 'RSA') {
           const googleJwk = entry;
           const pem = jwkToPem(googleJwk);
@@ -379,9 +375,8 @@ export class SharedKeyService {
             },
             (err: any, verifiedJwt: { aud: string }) => {
               if (err) {
-                console.error('Google JWT verification failed:', err);
+                this.logger.error('Google JWT verification failed:', err);
               } else {
-                console.log('verifiedJwt:', verifiedJwt);
                 enclavePublicSha256 = verifiedJwt.aud.replace(
                   this.configService.get<string>(
                     'GOOGLE_TOKEN_AUDIENCE_HOST',
@@ -389,7 +384,6 @@ export class SharedKeyService {
                   ) || '',
                   '',
                 );
-                console.log('enclavePublicSha256:', enclavePublicSha256);
               }
             },
           );
@@ -398,7 +392,7 @@ export class SharedKeyService {
 
       return enclavePublicSha256 ?? null;
     } catch (e) {
-      console.error('Error verifying Google JWT:', e);
+      this.logger.error('Error verifying Google JWT:', e);
       return null;
     }
   }
