@@ -237,7 +237,7 @@ export class SharedKeyService {
 
     const encryptedSharedKey = await openpgp.encrypt({
       message: await openpgp.createMessage({
-        binary: Buffer.from(sharedKey),
+        binary: Buffer.from(sharedKey, 'base64'),
       }),
       encryptionKeys: openpgpKey,
       format: 'binary',
@@ -247,7 +247,7 @@ export class SharedKeyService {
       encryptedSharedKey as Uint8Array,
     ).toString('base64');
 
-    return encryptedSharedKeyBase64;
+    return this.base64WithPadding(encryptedSharedKeyBase64);
   }
 
   private async getSharedKey(): Promise<string | undefined> {
@@ -297,8 +297,17 @@ export class SharedKeyService {
       ...options,
     });
 
-    return hash.split('$').pop() ?? '';
+    return this.base64WithPadding(hash.split('$').pop() ?? '');
   }
+
+  private base64WithPadding = (base64String: string) => {
+    const remainder = base64String.length % 4;
+    if (remainder === 0) {
+      return base64String; // Already a multiple of 4, no padding needed
+    }
+    const paddingNeeded = 4 - remainder; // Calculate how much padding is required
+    return base64String + '='.repeat(paddingNeeded); // Add the required padding
+  };
 
   private async validateEnclaveKeys(enclaveKeys: {
     data: { enclaveKeys: { enclavePublicKey: string; googleJwtToken: string } };
