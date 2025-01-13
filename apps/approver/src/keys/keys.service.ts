@@ -45,6 +45,18 @@ export class KeysService {
     );
   }
 
+  async signPublicEncryptionKey(publicEncryptionKey: string): Promise<string> {
+    const key = await this.getApproverKey();
+    if (key) {
+      const dataToSign = JSON.stringify({ publicKey: publicEncryptionKey });
+      const signedData = await this.sign(key, dataToSign);
+      return signedData;
+    }
+    throw new Error(
+      "signPublicEncryptionKey error: fail to find Approver's signing key",
+    );
+  }
+
   private async getOrCreateApproverKey(): Promise<string> {
     const key = await this.getApproverKey();
     return key ?? (await this.createApproverKey());
@@ -146,5 +158,18 @@ export class KeysService {
     pairingCode: string,
   ): Promise<string> {
     return createHmac('sha256', pairingCode).update(message).digest('hex');
+  }
+
+  async signEncryptedSharedKeyMessage(
+    encryptedSharedKeyMessage: string,
+  ): Promise<string> {
+    const key = await this.getApproverKey();
+    if (key) {
+      const signedData = await this.sign(key, encryptedSharedKeyMessage);
+      return signedData;
+    }
+    throw new Error(
+      "[signEncryptedSharedKeyMessage] error: fail to find Approver's signing key",
+    );
   }
 }

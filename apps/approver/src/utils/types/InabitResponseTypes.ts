@@ -46,3 +46,20 @@ export type GetWalletKeysResponse = {
     };
   };
 };
+
+export type GetSharedKeyApiSignerResponse = {
+  success: boolean;
+};
+
+export type SetSharedKeyApiSignerResponse = {
+  success: boolean;
+};
+
+export type GetEnclaveKeysDataResponse = {
+  data: {
+    enclaveKeys: {
+      enclavePublicKey: string;
+      googleJwtToken: string;
+    };
+  };
+} | null;

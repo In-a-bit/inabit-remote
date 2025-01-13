@@ -1,4 +1,9 @@
-import { Inject, Injectable } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  OnApplicationBootstrap,
+  OnModuleInit,
+} from '@nestjs/common';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Logger } from 'winston';
 import { UtilsService } from './utils/utils.service';
@@ -15,9 +20,11 @@ import { TransactionValidationData } from './utils/types/TransactionValidationDa
 import { TransactionApprovalRequestData } from './utils/types/TransactionApprovalRequestData';
 import { WalletUpdatedData } from './utils/types/WalletUpdatedData';
 import { WalletKeysService } from './wallet/wallet.service';
+import { SharedKeyService } from './shared-key/shared-key.service';
+import { EncryptedSharedKeyMessage } from './utils/types/EncryptedSharedKeyMessage';
 
 @Injectable()
-export class ApproverService {
+export class ApproverService implements OnModuleInit, OnApplicationBootstrap {
   constructor(
     private readonly utilsService: UtilsService,
     private readonly authService: AuthService,
@@ -25,15 +32,33 @@ export class ApproverService {
     private readonly keysService: KeysService,
     private readonly walletKeysService: WalletKeysService,
     private readonly configService: ConfigService,
+    private readonly sharedKeyService: SharedKeyService,
     @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
   ) {}
+
+  async onApplicationBootstrap() {
+    try {
+      if (!(await this.sharedKeyService.sharedKeyExists())) {
+        this.logger.info(
+          '[onApplicationBootstrap], Shared key is missing, triggering a get shared key request.',
+        );
+        await this.triggerGetSharedKeyRequest();
+      }
+    } catch (error) {
+      this.logger.error(
+        `[onApplicationBootstrap] ApproverService error: ${
+          error?.message ?? this.utilsService.errorToString(error)
+        }`,
+      );
+    }
+  }
 
   async onModuleInit() {
     try {
       await this.initiationService.initApprover();
     } catch (error) {
       this.logger.error(
-        `ApproverService onModuleInit error: ${
+        `[onModuleInit] ApproverService error: ${
           error?.message ?? this.utilsService.errorToString(error)
         }`,
       );
@@ -386,5 +411,129 @@ export class ApproverService {
 
   getHello(): string {
     return 'Hello World!';
+  }
+
+  async handleGetSharedKeyResponse(
+    encryptedSharedKeyData: string,
+  ): Promise<boolean> {
+    return await this.sharedKeyService.decryptAndSaveSharedKey(
+      encryptedSharedKeyData,
+    );
+  }
+
+  async triggerGetSharedKeyRequest(): Promise<{ success: boolean }> {
+    try {
+      if (!(await this.sharedKeyService.sharedKeyExists())) {
+        const accessToken = await this.authService.login();
+        const apiSigner = await this.authService.getApiSignerState(accessToken);
+
+        if (!apiSigner) {
+          const errorMsg = `[triggerGetSharedKeyRequest] Approver is not registered, contact support.`;
+          this.logger.error(errorMsg);
+          throw new Error(errorMsg);
+        }
+
+        if (apiSigner.pairingStatus === 'Paired') {
+          return await this.sendGetSharedKeyRequest(accessToken);
+        }
+        this.logger.info(
+          `[triggerGetSharedKeyRequest] skipped, Approver is currently not paired.`,
+        );
+      }
+      this.logger.info(
+        `[triggerGetSharedKeyRequest] skipped, shared key exists.`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `[triggerGetSharedKeyRequest] Error occurred: ${this.utilsService.errorToString(
+          error,
+        )}`,
+      );
+    }
+    return { success: false };
+  }
+
+  private async sendGetSharedKeyRequest(
+    accessToken: string,
+  ): Promise<{ success: boolean }> {
+    const signedEncryptionPublicKey = await this.getSignedEncryptionPublicKey();
+
+    return await this.sharedKeyService.getSharedKeyApiSignerRequest(
+      signedEncryptionPublicKey,
+      accessToken,
+    );
+  }
+
+  async setSharedKey(): Promise<{ success: boolean }> {
+    try {
+      if (await this.sharedKeyService.sharedKeyExists()) {
+        const accessToken = await this.authService.login();
+        const apiSigner = await this.authService.getApiSignerState(accessToken);
+
+        if (!apiSigner) {
+          const errorMsg = `[sendSharedKey] Approver is not registered, contact support.`;
+          this.logger.error(errorMsg);
+          throw new Error(errorMsg);
+        }
+
+        if (apiSigner.pairingStatus === 'Paired') {
+          const encryptedSharedKeyMessage: EncryptedSharedKeyMessage =
+            await this.sharedKeyService.getEncryptedSharedKeyMessage(
+              accessToken,
+            );
+
+          if (!encryptedSharedKeyMessage) {
+            this.logger.error(
+              `[setSharedKey] error: could not get an encrypted shared key message.`,
+            );
+            return { success: false };
+          }
+
+          const signedEncryptedSharedKeyMessage =
+            await this.keysService.signEncryptedSharedKeyMessage(
+              JSON.stringify(encryptedSharedKeyMessage),
+            );
+
+          if (!signedEncryptedSharedKeyMessage) {
+            this.logger.error(
+              `[setSharedKey] error: could not sign encrypted shared key message.`,
+            );
+            return { success: false };
+          }
+
+          return await this.sharedKeyService.setSharedKey(
+            accessToken,
+            signedEncryptedSharedKeyMessage,
+          );
+        }
+        this.logger.info(
+          `[setSharedKey] skipped, Approver is currently not paired.`,
+        );
+      } else {
+        this.logger.info(`[setSharedKey] skipped, shared key does not exists.`);
+      }
+    } catch (error) {
+      this.logger.error(
+        `[setSharedKey] Error occurred: ${this.utilsService.errorToString(
+          error,
+        )}`,
+      );
+    }
+    return { success: false };
+  }
+
+  private async getSignedEncryptionPublicKey(): Promise<string> {
+    const publicEncryptionKey =
+      await this.sharedKeyService.getPublicEncryptionKey();
+
+    if (!publicEncryptionKey) {
+      throw new Error(
+        '[getSignedEncryptionPublicKey] error: no public encryption key found',
+      );
+    }
+    const signedEncryptionPublicKey =
+      await this.keysService.signPublicEncryptionKey(publicEncryptionKey);
+
+    return signedEncryptionPublicKey;
   }
 }
