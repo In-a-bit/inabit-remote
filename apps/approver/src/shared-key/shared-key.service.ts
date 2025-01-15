@@ -313,33 +313,37 @@ export class SharedKeyService {
       );
       return false;
     }
-    if (!enclaveKeys?.data?.enclaveKeys?.googleJwtToken) {
-      this.logger.error(
-        '[getEncryptedSharedKeyMessage] Google JWT token is null or undefined.',
-      );
-      return false;
-    }
+    if (
+      this.configService.get('SKIP_ENCLAVE_KEYS_VALIDATION', 'false') !== 'true'
+    ) {
+      if (!enclaveKeys?.data?.enclaveKeys?.googleJwtToken) {
+        this.logger.error(
+          '[getEncryptedSharedKeyMessage] Google JWT token is null or undefined.',
+        );
+        return false;
+      }
 
-    const enclavePublicSha256FromGoogleJwt =
-      await this.getEnclavePublicSha256FromGoogleJwt(
-        enclaveKeys?.data.enclaveKeys.googleJwtToken,
-      );
-    if (!enclavePublicSha256FromGoogleJwt) {
-      this.logger.error(
-        '[validateEnclaveKeys] failed to get enclavePublicSha256FromGoogleJwt.',
-      );
-      return false;
-    }
+      const enclavePublicSha256FromGoogleJwt =
+        await this.getEnclavePublicSha256FromGoogleJwt(
+          enclaveKeys?.data.enclaveKeys.googleJwtToken,
+        );
+      if (!enclavePublicSha256FromGoogleJwt) {
+        this.logger.error(
+          '[validateEnclaveKeys] failed to get enclavePublicSha256FromGoogleJwt.',
+        );
+        return false;
+      }
 
-    const enclavePublicSha256 = this.deriveEnclavePublicSha256(
-      enclaveKeys.data.enclaveKeys.enclavePublicKey,
-    );
-
-    if (enclavePublicSha256FromGoogleJwt !== enclavePublicSha256) {
-      this.logger.error(
-        `[validateEnclaveKeys] Enclave public key is not valid, mismatch. ${enclavePublicSha256FromGoogleJwt} !== ${enclavePublicSha256}`,
+      const enclavePublicSha256 = this.deriveEnclavePublicSha256(
+        enclaveKeys.data.enclaveKeys.enclavePublicKey,
       );
-      return false;
+
+      if (enclavePublicSha256FromGoogleJwt !== enclavePublicSha256) {
+        this.logger.error(
+          `[validateEnclaveKeys] Enclave public key is not valid, mismatch. ${enclavePublicSha256FromGoogleJwt} !== ${enclavePublicSha256}`,
+        );
+        return false;
+      }
     }
     return true;
   }
