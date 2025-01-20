@@ -34,7 +34,7 @@ export class KeysService {
   }
 
   async signTransactionData(message: string): Promise<string> {
-    const key = await this.getApproverKey();
+    const key = await this.getOrCreateApproverKey();
     if (key) {
       const signedTransactionApproval = await this.sign(key, message);
       this.logger.info(`transaction approval : ${signedTransactionApproval}`);
@@ -46,7 +46,7 @@ export class KeysService {
   }
 
   async signPublicEncryptionKey(publicEncryptionKey: string): Promise<string> {
-    const key = await this.getApproverKey();
+    const key = await this.getOrCreateApproverKey();
     if (key) {
       const dataToSign = JSON.stringify({ publicKey: publicEncryptionKey });
       const signedData = await this.sign(key, dataToSign);
@@ -163,7 +163,7 @@ export class KeysService {
   async signEncryptedSharedKeyMessage(
     encryptedSharedKeyMessage: string,
   ): Promise<string> {
-    const key = await this.getApproverKey();
+    const key = await this.getOrCreateApproverKey();
     if (key) {
       const signedData = await this.sign(key, encryptedSharedKeyMessage);
       return signedData;

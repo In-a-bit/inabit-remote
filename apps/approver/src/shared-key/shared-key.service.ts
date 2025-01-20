@@ -162,7 +162,7 @@ export class SharedKeyService {
         );
     } catch (error) {
       this.logger.error(
-        `[sendSharedKey] error: ${this.utilsService.errorToString(error)}`,
+        `[setSharedKey] error: ${this.utilsService.errorToString(error)}`,
       );
     }
     return result;
@@ -309,13 +309,20 @@ export class SharedKeyService {
   }) {
     if (!enclaveKeys?.data?.enclaveKeys?.enclavePublicKey) {
       this.logger.error(
-        '[getEncryptedSharedKeyMessage] Enclave public key is null or undefined.',
+        '[validateEnclaveKeys] Enclave public key is null or undefined.',
       );
       return false;
     }
+
+    if (
+      this.configService.get('SKIP_ENCLAVE_KEYS_VALIDATION', 'false') === 'true'
+    ) {
+      return true;
+    }
+
     if (!enclaveKeys?.data?.enclaveKeys?.googleJwtToken) {
       this.logger.error(
-        '[getEncryptedSharedKeyMessage] Google JWT token is null or undefined.',
+        '[validateEnclaveKeys] Google JWT token is null or undefined.',
       );
       return false;
     }
@@ -341,6 +348,7 @@ export class SharedKeyService {
       );
       return false;
     }
+
     return true;
   }
 
