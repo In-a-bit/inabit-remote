@@ -5,8 +5,8 @@ export type TransactionValidationData = {
   initiatorId: string;
   organizationId: string;
   network: string;
-  walletId: string;
-  walletAddress: string;
+  walletIds: string[];
+  walletAddresses: string[];
   to: string;
   coin: string;
   amount: number;
