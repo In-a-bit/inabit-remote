@@ -238,7 +238,7 @@ export class ApproverService implements OnModuleInit, OnApplicationBootstrap {
         policy_id: transaction.policyRuleId,
       },
       tx_details: {
-        wallet_id: transaction.walletIds.length == 1 ? transaction.walletIds[0] : transaction.walletIds.sort(),
+        wallet_id: (Array.isArray(transaction.walletId) && transaction.walletId.length > 1) ?  transaction.walletId.sort() : transaction.walletId, 
         network: transaction.network,
         coin: transaction.coin,
         to: transaction.to,
