@@ -70,7 +70,7 @@ cp ./apps/approver/.env.example .env
 Now, Open `.env` file in your text editor, and change the following values:
 
   * APPROVER_URL - set here the URL of your app. 
-  This URL is the URL that this approver app is hosted on. Means - it will get http requests on this URL, from `inabit.com` servers. **In case you don't have some logic, so for convince, there is an option to set here a predefined url - see [mock validation](#mock-validation) part in this document. 
+  This URL is the URL that this approver app is hosted on. Means - it will get http requests on this URL, from `inabit.com` servers. 
   
   * SECRET - set here a long secret.
 
