@@ -7,8 +7,8 @@ export type TransactionApprovalRequestData = {
   organizationName: string;
   organizationId: string;
   policyRuleId: string;
-  walletId: string;
-  walletAddress: string;
+  walletId: string|string[]; 
+  walletAddress: string|string[];
   network: string;
   coin: string;
   to: string;
