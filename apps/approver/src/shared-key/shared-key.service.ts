@@ -68,7 +68,12 @@ export class SharedKeyService {
         encryptedSharedKey,
       );
 
-      if (decryptedSharedKey) {
+      console.log(
+            '[decryptAndSaveSharedKey] Received decrypted shared key:',
+            decryptedSharedKey,
+        );
+
+        if (decryptedSharedKey) {
         return await this.saveSharedKey(decryptedSharedKey);
       }
     } catch (error) {
