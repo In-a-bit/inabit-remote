@@ -22,6 +22,8 @@ import { WalletUpdatedData } from './utils/types/WalletUpdatedData';
 import { WalletKeysService } from './wallet/wallet.service';
 import { SharedKeyService } from './shared-key/shared-key.service';
 import { EncryptedSharedKeyMessage } from './utils/types/EncryptedSharedKeyMessage';
+import { WhitelistRow } from './utils/types/WhitelistRow';
+import { ValidationResult } from './utils/types/ValidationResult';
 
 @Injectable()
 export class ApproverService implements OnModuleInit, OnApplicationBootstrap {
@@ -238,7 +240,7 @@ export class ApproverService implements OnModuleInit, OnApplicationBootstrap {
         policy_id: transaction.policyRuleId,
       },
       tx_details: {
-        wallet_id: transaction.walletId, 
+        wallet_id: transaction.walletId,
         network: transaction.network,
         coin: transaction.coin,
         to: transaction.to,
@@ -388,9 +390,7 @@ export class ApproverService implements OnModuleInit, OnApplicationBootstrap {
 
   mockValidateTransaction(
     transactionValidationData: TransactionValidationData,
-  ): {
-    approved: boolean;
-  } {
+  ): ValidationResult {
     this.logger.info(
       `mockValidateTransaction: ${JSON.stringify(transactionValidationData)}`,
     );
@@ -407,6 +407,54 @@ export class ApproverService implements OnModuleInit, OnApplicationBootstrap {
       case 'rejected':
         return { approved: false };
     }
+  }
+
+  async validateTransactionDestinationAddress(
+    transactionValidationData: TransactionValidationData,
+  ): Promise<ValidationResult> {
+    this.logger.info(
+      `ValidateTransactionDestinationAddress: ${JSON.stringify(
+        transactionValidationData,
+      )}`,
+    );
+
+    const whitelistedAddresses: WhitelistRow[] | undefined =
+      await this.utilsService.getWhiteListAddresses();
+    if (!whitelistedAddresses || whitelistedAddresses.length === 0) {
+      this.logger.warn(
+        `validateTransactionDestinationAddress : Whitelist is empty or misconfigured. transaction validation failed , rejected.`,
+      );
+      return { approved: false };
+    }
+    try {
+      for (const whitelistRow of whitelistedAddresses) {
+        if (
+          whitelistRow.address &&
+          whitelistRow.network &&
+          whitelistRow.coin &&
+          whitelistRow.address === transactionValidationData.to &&
+          whitelistRow.network === transactionValidationData.network &&
+          whitelistRow.coin === transactionValidationData.coin
+        ) {
+          this.logger.info(
+            `validateTransactionDestinationAddress: Transaction to ${transactionValidationData.to} on ${transactionValidationData.network} for ${transactionValidationData.coin} is whitelisted.`,
+          );
+          return { approved: true };
+        }
+      }
+    } catch (error) {
+      this.logger.error(
+        `validateTransactionDestinationAddress: Error while validating transaction destination address: ${this.utilsService.errorToString(
+          error,
+        )}`,
+      );
+      return { approved: false };
+    }
+
+    this.logger.warn(
+      `validateTransactionDestinationAddress: Transaction to ${transactionValidationData.to} on ${transactionValidationData.network} for ${transactionValidationData.coin} not found in whitelist or whitelist is empty/misconfigured.`,
+    );
+    return { approved: false };
   }
 
   getHello(): string {

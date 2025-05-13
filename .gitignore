@@ -37,3 +37,4 @@ lerna-debug.log*
 
 .env
 *.dat
+apps/approver/whitelist/whitelist.csv
