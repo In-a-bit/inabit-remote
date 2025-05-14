@@ -24,6 +24,7 @@ import { SharedKeyService } from './shared-key/shared-key.service';
 import { EncryptedSharedKeyMessage } from './utils/types/EncryptedSharedKeyMessage';
 import { WhitelistRow } from './utils/types/WhitelistRow';
 import { ValidationResult } from './utils/types/ValidationResult';
+import { NetworkEnum } from './utils/enums/EnumNetwork';
 
 @Injectable()
 export class ApproverService implements OnModuleInit, OnApplicationBootstrap {
@@ -429,12 +430,7 @@ export class ApproverService implements OnModuleInit, OnApplicationBootstrap {
     try {
       for (const whitelistRow of whitelistedAddresses) {
         if (
-          whitelistRow.address &&
-          whitelistRow.network &&
-          whitelistRow.coin &&
-          whitelistRow.address === transactionValidationData.to &&
-          whitelistRow.network === transactionValidationData.network &&
-          whitelistRow.coin === transactionValidationData.coin
+          this.isTransactionWhitelisted(whitelistRow, transactionValidationData)
         ) {
           this.logger.info(
             `validateTransactionDestinationAddress: Transaction to ${transactionValidationData.to} on ${transactionValidationData.network} for ${transactionValidationData.coin} is whitelisted.`,
@@ -460,7 +456,6 @@ export class ApproverService implements OnModuleInit, OnApplicationBootstrap {
   getHello(): string {
     return 'Hello World!';
   }
-
   async handleGetSharedKeyResponse(
     encryptedSharedKeyData: string,
   ): Promise<boolean> {
@@ -583,5 +578,78 @@ export class ApproverService implements OnModuleInit, OnApplicationBootstrap {
       await this.keysService.signPublicEncryptionKey(publicEncryptionKey);
 
     return signedEncryptionPublicKey;
+  }
+
+  private isTransactionWhitelisted(
+    whitelistRow: WhitelistRow,
+    transactionValidationData: TransactionValidationData,
+  ): boolean {
+    if (
+      whitelistRow.address &&
+      whitelistRow.network &&
+      whitelistRow.coin &&
+      this.compareAddresses(
+        whitelistRow.address,
+        transactionValidationData.to,
+        transactionValidationData.network as NetworkEnum,
+      ) &&
+      whitelistRow.network === transactionValidationData.network &&
+      whitelistRow.coin === transactionValidationData.coin
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  private compareAddresses(
+    whitelistAddress: string,
+    transactionAddress: string,
+    network: NetworkEnum,
+  ): boolean {
+    const shouldLowerCaseBeforeCheck =
+      this.shouldLowerCaseAddressesBeforeCompare(network, transactionAddress);
+    return shouldLowerCaseBeforeCheck
+      ? whitelistAddress.toLowerCase() === transactionAddress.toLowerCase()
+      : whitelistAddress === transactionAddress;
+  }
+
+  private shouldLowerCaseAddressesBeforeCompare(
+    network: NetworkEnum,
+    address: string,
+  ): boolean {
+    let shouldLowerCase = false;
+    switch (network) {
+      case NetworkEnum.BTC: {
+        if (address.startsWith('bc1')) {
+          shouldLowerCase = true;
+        }
+        break;
+      }
+      case NetworkEnum.LTC: {
+        if (address.startsWith('ltc1')) {
+          shouldLowerCase = true;
+        }
+        break;
+      }
+      case NetworkEnum.BCH: {
+        if (address.startsWith('bitcoincash:')) {
+          shouldLowerCase = true;
+        }
+        break;
+      }
+      case NetworkEnum.MATIC:
+      case NetworkEnum.BSC:
+      case NetworkEnum.ETH:
+      case NetworkEnum.ETHEREUM_SEPOLIA:
+        shouldLowerCase = true;
+        break;
+      case NetworkEnum.TRON:
+      case NetworkEnum.XRP:
+      case NetworkEnum.SOL:
+      default:
+        shouldLowerCase = false;
+        break;
+    }
+    return shouldLowerCase;
   }
 }
