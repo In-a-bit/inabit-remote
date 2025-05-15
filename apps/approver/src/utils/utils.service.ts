@@ -4,6 +4,10 @@ import { Logger } from 'winston';
 import { HttpService } from '@nestjs/axios';
 import { catchError, lastValueFrom, map } from 'rxjs';
 import { ConfigService } from '@nestjs/config';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as csvtojson from 'csvtojson';
+import { WhitelistRow } from './types/WhitelistRow';
 
 @Injectable()
 export class UtilsService {
@@ -88,5 +92,43 @@ export class UtilsService {
       }`;
 
     return 'unknown error';
+  }
+
+  async getFilePath(filePath: string, fileName: string): Promise<string> {
+    const appRootPath = await path.resolve('./');
+    const keyFilePath = `${appRootPath}/${filePath}/${fileName}`;
+    return keyFilePath;
+  }
+
+  async getWhiteListAddresses(): Promise<WhitelistRow[] | undefined> {
+    try {
+      const csvFilePath = this.config.getOrThrow<string>('WHITELIST_CSV_PATH');
+      const csvFileName = this.config.getOrThrow<string>(
+        'WHITELIST_CSV_FILE_NAME',
+      );
+      const filePath = await this.getFilePath(csvFilePath, csvFileName);
+
+      if (!fs.existsSync(filePath)) {
+        this.logger.error(
+          `getWhiteListAddresses: Whitelist CSV file not found at: ${filePath}`,
+        );
+        return undefined;
+      }
+
+      const fileContent = fs.readFileSync(filePath, 'utf-8');
+      const customHeaders = ['address', 'network', 'coin'];
+      const rows: WhitelistRow[] = await csvtojson({
+        noheader: false,
+        headers: customHeaders,
+      }).fromString(fileContent);
+      return rows;
+    } catch (error) {
+      this.logger.error(
+        `getWhiteListAddresses: Error reading whitelist CSV file: ${this.errorToString(
+          error,
+        )}`,
+      );
+      return undefined;
+    }
   }
 }

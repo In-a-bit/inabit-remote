@@ -63,11 +63,12 @@ mkdir dat
 # save the login token in file.
 # in the next line, replace <login token> with the token you got.
 echo "<login token>" > refresh/r.dat
-# copy the .env.example to .env
-cp ./apps/approver/.env.example .env
+# Create your application's environment file. We'll name it app.env.
+# (Refer to 'Required Configurations' section for why we don't use .env directly in the root)
+cp ./apps/approver/.env.example app.env
 ```
 
-Now, Open `.env` file in your text editor, and change the following values:
+Now, Open `app.env` file in your text editor, and change the following values:
 
   * APPROVER_URL - set here the URL of your app. 
   This URL is the URL that this approver app is hosted on. Means - it will get http requests on this URL, from `inabit.com` servers. 
@@ -169,13 +170,30 @@ docker-compose -f docker-compose.prod.yml up approver
 ```
 ## Required Configurations
 
-The required config can be provided in 2 ways:
+Provide the required configurations by mapping an external environment file (e.g., `app.env`) into the container using Docker Compose volumes. Create this file at the project root (e.g., by copying `apps/approver/.env.example` to `app.env` as shown in the Quick Setup).
 
-1. Baked into the docker by building the docker with a valid `.env` file.
-2. Through the `docker-compose.prod.yml` file variables override section `environment`.
+**Important:** Remove any `.env` file from the project root or within the `apps/approver` directory to prevent conflicts with this Docker Compose volume mapping method.
 
-In case using `.env` is selected, remember to modify or remove the `environment:` section, from `docker-compose.prod.yml`.
-In case of a change of the `.env` , a new docker image build must proceed. 
+### Mapping `app.env` via Docker Compose volumes
+
+Add a volume mapping to your `approver` service in `docker-compose.prod.yml` to map your host's `app.env` to the container's expected `.env` file location.
+
+Example (`docker-compose.prod.yml`):
+
+```yaml
+services:
+  approver:
+    # ... other service configurations ...
+    volumes:
+      - ./app.env:/app/apps/approver/.env  # Maps host's ./app.env to container's /app/apps/approver/.env
+      # ... other existing volume mappings ...
+```
+
+**Key Points:**
+
+*   **Host File:** The example uses `app.env` on your host machine.
+*   **Container Target:** The application inside the container typically expects `/app/apps/approver/.env`.
+*   **Configuration Source:** Rely solely on the mapped `app.env` file for these configurations to avoid confusion.
 
 ### Required Environment Variables
 
@@ -194,6 +212,8 @@ ENCRYPTION_KEYS_FILE_NAME=enc.dat
 ENCRYPTION_KEYS_PASSPHRASE=passphrase
 SHARED_KEY_FILE_PATH=sk
 SHARED_KEY_FILE_NAME=sk.dat
+WHITELIST_CSV_PATH=whitelist
+WHITELIST_CSV_FILE_NAME=whitelist.csv
 ```
 ### Important
 
@@ -300,18 +320,72 @@ In order to handle transaction approvals:
    5. On receiving a validation url call response, a signed approval (using Approver's key) will be sent back automatically to Inabit, for further processing (policy enforcement).
 
 
+### Using Internal Validation (Whitelist or Mock)
 
-### Mock validation
+Instead of an external validation URL, you can configure the Approver to use its own internal validation logic.
 
-It is also possible to mock external validation url using a predefined endpoint (transaction/validate) on the Approver,
+**1. Mock Validation:**
+
+It is also possible to mock external validation url using a predefined endpoint (`transaction/validate`) on the Approver,
 and control the required outcome.
 Using the following configuration 
 ```env
-VALIDATION_CALLBACK_URL=[APPROVER_URL]transaction/validate # replace [APPROVER_URL] with the Approver's url. 
+VALIDATION_CALLBACK_URL=[APPROVER_URL]/transaction/validate # replace [APPROVER_URL] with the Approver's url. 
 VALIDATION_MOCK_SET_RESULT=rejected   # allowed: approved / rejected / exception
 ```
 
+**2. Internal Whitelist Validation:**
+
+The Approver app includes an endpoint to validate transactions against the `whitelist.csv` file. To use this, set the `VALIDATION_CALLBACK_URL` to point to this internal endpoint:
+
+```env
+VALIDATION_CALLBACK_URL=[APPROVER_URL]/transaction/whitelist 
+# replace [APPROVER_URL] with the Approver's publicly accessible URL (e.g., http://localhost:3020, or your production domain)
+```
+This endpoint will check if the transaction's destination address is present in the `whitelist.csv` file.
+
+**Whitelist Management (whitelist.csv):**
+
+The `whitelist.csv` file is used to maintain a list of approved destination addresses for transactions. If you configure the Approver to use internal whitelist validation, transactions to addresses not in this file will be rejected.
+
+**Structure:**
+
+The `whitelist.csv` file should be a CSV file with three columns: `address`, `network`, and `coin`. The first line must be the header. For example:
+
+```csv
+"address","network","coin"
+"0x1234567890abcdef1234567890abcdef12345678","Ethereum","ETH"
+"TWNFJdxxuaF1it5UkbWbqnfAgNU7JVu5hB","TRON","TRX"
+```
+
+**Configuration:**
+
+Set the following environment variables to configure the whitelist:
+
+```env
+WHITELIST_CSV_PATH=whitelist
+WHITELIST_CSV_FILE_NAME=whitelist.csv
+```
+
+**Volume Mapping:**
+
+To ensure the `whitelist.csv` file is persisted and accessible to the Docker container, map it as a volume in your `docker-compose.prod.yml` file.
+
+Create a folder named `whitelist` in the `apps/approver` directory (i.e., `/whitelist`).
+Place your `whitelist.csv` file inside this folder.
+
+Then, map this folder in the `docker-compose.prod.yml`:
+
+```yaml
+volumes:
+      # ... other volume mappings
+      - ./whitelist:/app/apps/approver/whitelist
+```
+
+Ensure the `WHITELIST_CSV_PATH` environment variable corresponds to the path used inside the container.
+
 ### Initiation trace log example:
+
 ```
 {
   level: 'info',
@@ -357,7 +431,7 @@ VALIDATION_MOCK_SET_RESULT=rejected   # allowed: approved / rejected / exception
 }
 {
   level: 'info',
-  message: 'signature key : eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImp3ayI6eyJrdHkiOiJFQyIsIngiOiItWGJ6Qjdfa2I2cXNJdDRxTTg3cU5OMC1TeTVZWU9NbmN1R1F4U1E1YmZVIiwieSI6IjR6Qk9zR1Yza0NTek4zSW02cE1KSjZzcUJYVW03RHBfRjJmbWNhbEhGVzgiLCJjcnYiOiJQLTI1NiIsImtpZCI6Im01QXpWcWJjQURRK25hSmh5Y1E4b0JXTFJYYTBqeDVOQjEyeW1KQklyYlU9In19.eyJ2ZXJpZnlfa2V5Ijp7Imp3ayI6eyJrdHkiOiJFQyIsIngiOiItWGJ6Qjdfa2I2cXNJdDRxTTg3cU5OMC1TeTVZWU9NbmN1R1F4U1E1YmZVIiwieSI6IjR6Qk9zR1Yza0NTek4zSW02cE1KSjZzcUJYVW03RHBfRjJmbWNhbEhGVzgiLCJjcnYiOiJQLTI1NiIsImtpZCI6Im01QXpWcWJjQURRK25hSmh5Y1E4b0JXTFJYYTBqeDVOQjEyeW1KQklyYlU9In19LCJtZXNzYWdlIjoie1wiY3JlYXRvclwiOntcImVtYWlsXCI6XCJpc3N1ZXJAZXhhbXBsZS5jb21cIixcIm9yZ2FuaXphdGlvbk5hbWVcIjpcIm15LW9yZ2FuaXphdGlvblwifX0iLCJtYWMiOiJhOGJiMjA3ZGRiMTk2MmE1YTg3MjY2YTkzYWI4MDlmOTY1MDcwN2U0NmNkOTE3M2FiYjZhOTE4MDYwY2Q3ODU2IiwiaWF0IjoxNzA4NTA1NjU3fQ.1ZBl8XRllNyoJNWNPaB6iAu9VbQh2Jcr0hXRPppD8wES1Z5ZckPXTe0eqBmmTtZS_l4Gtip7kwOfFMi-jNtbIA',
+  message: 'signature key : eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImp3ayI6eyJrdHkiOiJFQyIsIngiOiItWGJ6Qjdfa2I2cXNJdDRxTTg3cU5OMC1TeTVZWU9NbmN1R1F4U1E1YmZVIiwieSI6IjR6Qk9zR1Yza0NTek4zSW02cE1KSjZzcUJYVW03RHBfRjJmbWNhbEhGVzgiLCJjcnYiOiJQLTI1NiIsImtpZCI6Im01QXpWcWJjQURRK25hSmh5Y1E4b0JXTFJYYTBqeDVOQjEyeW1KQklyYlU9In19.eyJ2ZXJpZnlfa2V5Ijp7Imp3ayI6eyJrdHkiOiJFQyIsIngiOiItWGJ6Qjdfa2I2cXNJdDRxTTg3cU5OMC1TeTVZWU9NbmN1R1F4U1E1YmZVIiwieSI6IjR6Qk9zR1Yza0NTek4zSW02cE1KSjZzcUJYVW03RHBfRjJmbWNhbEhGVzgiLCJjcnYiOiJQLTI1NiIsImtpZCI6Im01QXpWcWJjQURRK25hSmh5Y1E4b0JXTFJYYTBqeDVOQjEyeW1KQklyYlU9In19LCJtZXNzYWdlIjoie1wiY3JlYXRvclwiOntcImVtYWlsXCI6XCJpc3N1ZXJAZXhhbXBsZS5jb21cIixcIm9yZ2FuaXphdGlvblwifX0iLCJtYWMiOiJhOGJiMjA3ZGRiMTk2MmE1YTg3MjY2YTkzYWI4MDlmOTY1MDcwN2U0NmNkOTE3M2FiYjZhOTE4MDYwY2Q3ODU2IiwiaWF0IjoxNzA4NTA1NjU3fQ.1ZBl8XRllNyoJNWNPaB6iAu9VbQh2Jcr0hXRPppD8wES1Z5ZckPXTe0eqBmmTtZS_l4Gtip7kwOfFMi-jNtbIA',
   metadata: { timestamp: '2024-02-21T08:54:17.578Z' },
   timestamp: '2024-02-21T08:54:17.578Z'
 }

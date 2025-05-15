@@ -56,6 +56,15 @@ export class ApproverController {
     );
   }
 
+  @Post('transaction/whitelist')
+  async validateTransactionDestinationAddress(
+    @Body() transactionValidationData: TransactionValidationData,
+  ): Promise<{ approved: boolean }> {
+    return this.approverService.validateTransactionDestinationAddress(
+      transactionValidationData,
+    );
+  }
+
   @Post('wallet/updated')
   async walletUpdateEvent(
     @Body()

@@ -22,6 +22,9 @@ import { WalletUpdatedData } from './utils/types/WalletUpdatedData';
 import { WalletKeysService } from './wallet/wallet.service';
 import { SharedKeyService } from './shared-key/shared-key.service';
 import { EncryptedSharedKeyMessage } from './utils/types/EncryptedSharedKeyMessage';
+import { WhitelistRow } from './utils/types/WhitelistRow';
+import { ValidationResult } from './utils/types/ValidationResult';
+import { NetworkEnum } from './utils/enums/EnumNetwork';
 
 @Injectable()
 export class ApproverService implements OnModuleInit, OnApplicationBootstrap {
@@ -389,9 +392,7 @@ export class ApproverService implements OnModuleInit, OnApplicationBootstrap {
 
   mockValidateTransaction(
     transactionValidationData: TransactionValidationData,
-  ): {
-    approved: boolean;
-  } {
+  ): ValidationResult {
     this.logger.info(
       `mockValidateTransaction: ${JSON.stringify(transactionValidationData)}`,
     );
@@ -410,10 +411,52 @@ export class ApproverService implements OnModuleInit, OnApplicationBootstrap {
     }
   }
 
+  async validateTransactionDestinationAddress(
+    transactionValidationData: TransactionValidationData,
+  ): Promise<ValidationResult> {
+    this.logger.info(
+      `ValidateTransactionDestinationAddress: ${JSON.stringify(
+        transactionValidationData,
+      )}`,
+    );
+
+    const whitelistedAddresses: WhitelistRow[] | undefined =
+      await this.utilsService.getWhiteListAddresses();
+    if (!whitelistedAddresses || whitelistedAddresses.length === 0) {
+      this.logger.warn(
+        `validateTransactionDestinationAddress : Whitelist is empty or misconfigured. transaction validation failed , rejected.`,
+      );
+      return { approved: false };
+    }
+    try {
+      for (const whitelistRow of whitelistedAddresses) {
+        if (
+          this.isTransactionWhitelisted(whitelistRow, transactionValidationData)
+        ) {
+          this.logger.info(
+            `validateTransactionDestinationAddress: Transaction to ${transactionValidationData.to} on ${transactionValidationData.network} for ${transactionValidationData.coin} is whitelisted.`,
+          );
+          return { approved: true };
+        }
+      }
+    } catch (error) {
+      this.logger.error(
+        `validateTransactionDestinationAddress: Error while validating transaction destination address: ${this.utilsService.errorToString(
+          error,
+        )}`,
+      );
+      return { approved: false };
+    }
+
+    this.logger.warn(
+      `validateTransactionDestinationAddress: Transaction to ${transactionValidationData.to} on ${transactionValidationData.network} for ${transactionValidationData.coin} not found in whitelist or whitelist is empty/misconfigured.`,
+    );
+    return { approved: false };
+  }
+
   getHello(): string {
     return 'Hello World!';
   }
-
   async handleGetSharedKeyResponse(
     encryptedSharedKeyData: string,
   ): Promise<boolean> {
@@ -536,5 +579,78 @@ export class ApproverService implements OnModuleInit, OnApplicationBootstrap {
       await this.keysService.signPublicEncryptionKey(publicEncryptionKey);
 
     return signedEncryptionPublicKey;
+  }
+
+  private isTransactionWhitelisted(
+    whitelistRow: WhitelistRow,
+    transactionValidationData: TransactionValidationData,
+  ): boolean {
+    if (
+      whitelistRow.address &&
+      whitelistRow.network &&
+      whitelistRow.coin &&
+      this.compareAddresses(
+        whitelistRow.address,
+        transactionValidationData.to,
+        transactionValidationData.network as NetworkEnum,
+      ) &&
+      whitelistRow.network === transactionValidationData.network &&
+      whitelistRow.coin === transactionValidationData.coin
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  private compareAddresses(
+    whitelistAddress: string,
+    transactionAddress: string,
+    network: NetworkEnum,
+  ): boolean {
+    const shouldLowerCaseBeforeCheck =
+      this.shouldLowerCaseAddressesBeforeCompare(network, transactionAddress);
+    return shouldLowerCaseBeforeCheck
+      ? whitelistAddress.toLowerCase() === transactionAddress.toLowerCase()
+      : whitelistAddress === transactionAddress;
+  }
+
+  private shouldLowerCaseAddressesBeforeCompare(
+    network: NetworkEnum,
+    address: string,
+  ): boolean {
+    let shouldLowerCase = false;
+    switch (network) {
+      case NetworkEnum.BTC: {
+        if (address.startsWith('bc1')) {
+          shouldLowerCase = true;
+        }
+        break;
+      }
+      case NetworkEnum.LTC: {
+        if (address.startsWith('ltc1')) {
+          shouldLowerCase = true;
+        }
+        break;
+      }
+      case NetworkEnum.BCH: {
+        if (address.startsWith('bitcoincash:')) {
+          shouldLowerCase = true;
+        }
+        break;
+      }
+      case NetworkEnum.MATIC:
+      case NetworkEnum.BSC:
+      case NetworkEnum.ETH:
+      case NetworkEnum.ETHEREUM_SEPOLIA:
+        shouldLowerCase = true;
+        break;
+      case NetworkEnum.TRON:
+      case NetworkEnum.XRP:
+      case NetworkEnum.SOL:
+      default:
+        shouldLowerCase = false;
+        break;
+    }
+    return shouldLowerCase;
   }
 }
