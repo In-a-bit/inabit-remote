@@ -8,8 +8,10 @@ services:
     ports:
       - "3020:3020"
     volumes:
+      - ./app.env:/app/apps/approver/.env
       - ./dat:/app/apps/approver/dat
       - ./refresh:/app/apps/approver/refresh
       - ./wallet:/app/apps/approver/wallet
       - ./sk:/app/apps/approver/sk
       - ./enc:/app/apps/approver/enc
+      - ./whitelist:/app/apps/approver/whitelist
