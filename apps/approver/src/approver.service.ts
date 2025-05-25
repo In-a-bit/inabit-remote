@@ -260,6 +260,7 @@ export class ApproverService implements OnModuleInit, OnApplicationBootstrap {
               fiat_currency: transaction?.offrampDetails?.fiatCurrency,
             }
           : undefined,
+        memo: transaction.memo || undefined,
       },
     };
   }
