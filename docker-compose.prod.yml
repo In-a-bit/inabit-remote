@@ -7,6 +7,7 @@ services:
       target: production
     ports:
       - "3020:3020"
+    restart: always  
     volumes:
       - ./app.env:/app/apps/approver/.env
       - ./dat:/app/apps/approver/dat
