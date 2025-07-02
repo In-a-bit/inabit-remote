@@ -261,6 +261,7 @@ export class ApproverService implements OnModuleInit, OnApplicationBootstrap {
             }
           : undefined,
       },
+      data: transaction?.data
     };
   }
 

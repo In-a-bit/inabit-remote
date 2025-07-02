@@ -17,6 +17,7 @@ export type TransactionApprovalRequestData = {
   baseCurrencyRate: string;
   baseCurrencyAmount: number;
   offrampDetails?: OfframpDetails;
+  data?: any
 };
 
 type OfframpDetails = {
