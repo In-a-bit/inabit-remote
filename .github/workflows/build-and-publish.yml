@@ -41,6 +41,11 @@ jobs:
         run: |
           echo "BRANCH_NAME=$(echo ${GITHUB_HEAD_REF} | tr / -)" >> $GITHUB_ENV
 
+      - name: Set lowercase repo name
+        run: |
+          echo "LOWERCASE_REPO=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      # --- Normalize branch name ---
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
@@ -48,6 +53,5 @@ jobs:
           file: docker/dockerfiles/Dockerfile.approver
           push: true
           tags: |
-            ghcr.io/${{ lowercase(github.repository) }}/approver:${{ env.BRANCH_NAME }}
-            ghcr.io/${{ lowercase(github.repository) }}/approver:${{ github.sha }}
-          labels: ${{ steps.meta.outputs.labels }}
+            ghcr.io/${{ env.LOWERCASE_REPO }}/approver:${{ env.BRANCH_NAME }}
+            ghcr.io/${{ env.LOWERCASE_REPO }}/approver:${{ github.sha }}
