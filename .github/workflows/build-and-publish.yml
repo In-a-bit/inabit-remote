@@ -2,7 +2,7 @@ name: Build & Publish Approver Image
 
 on:
   push:
-    branches: [ "*" ]
+    branches: [ '*' ]
     paths:
       - "docker/dockerfiles/Dockerfile.approver"
       - ".github/workflows/build-approver.yml"
