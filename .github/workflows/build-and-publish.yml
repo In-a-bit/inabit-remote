@@ -2,14 +2,10 @@ name: Build & Publish Approver Image
 
 on:
   push:
-    branches: [ '*' ]
+    branches: [ 'develop' ]
     paths:
-      - "docker/dockerfiles/Dockerfile.approver"
-      - ".github/workflows/build-approver.yml"
-  pull_request:
-    paths:
-      - "docker/dockerfiles/Dockerfile.approver"
-      - ".github/workflows/build-approver.yml"
+      - 'docker/dockerfiles/Dockerfile.approver'
+      - '.github/workflows/build-approver.yml'
   workflow_dispatch:   # manual run
 
 permissions:
@@ -19,7 +15,6 @@ permissions:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -34,20 +29,21 @@ jobs:
       - name: Set BRANCH_NAME (push / merge)
         if: github.event_name != 'pull oper_request'
         run: |
-          # GITHUB_REF = refs/heads/main  →  main
-          # GITHUB_REF = refs/heads/feature/foo/bar  →  feature-foo-bar
           echo "BRANCH_NAME=$(echo ${GITHUB_REF#refs/heads/} | tr / -)" >> $GITHUB_ENV
 
       - name: Set BRANCH_NAME (pull request)
         if: github.event_name == 'pull_request'
         run: |
-          # GITHUB_HEAD_REF = feature/foo/bar  →  feature-foo-bar
           echo "BRANCH_NAME=$(echo ${GITHUB_HEAD_REF} | tr / -)" >> $GITHUB_ENV
 
-      - name: Debug – show tags
-        run: |
-          echo "Full SHA : ${{ github.sha }}"
-          echo "Branch   : ${{ env.BRANCH_NAME }}"
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/approver
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-,format=short
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
@@ -56,16 +52,6 @@ jobs:
           file: docker/dockerfiles/Dockerfile.approver
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}/approver:${{ github.sha }}
             ghcr.io/${{ github.repository }}/approver:${{ env.BRANCH_NAME }}
-            ${{ github.ref == 'refs/heads/main' && format('ghcr.io/{0}/approver:latest', github.repository) || '' }}
-          labels: |
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-
-      - name: Verify image is reachable
-        run: |
-          echo "Pulling SHA tag..."
-          docker pull ghcr.io/${{ github.repository }}/approver:${{ github.sha }}
-          echo "Pulling branch tag..."
-          docker pull ghcr.io/${{ github.repository }}/approver:${{ env.BRANCH_NAME }}
+            ghcr.io/${{ github.repository }}/approver:${{ github.sha }}
+          labels: ${{ steps.meta.outputs.labels }}
