@@ -2,15 +2,11 @@ name: Build & Publish Approver Image
 
 on:
   push:
-    branches: [ "*" ]
+    branches: [ "develop", "main" ]
+    tags: [ "approver/**" ]
     paths:
       - 'docker/dockerfiles/Dockerfile.approver'
       - '.github/workflows/build-and-publish.yml'
-  pull_request:
-    branches: [ "develop", "main" ]
-    paths:
-      - "docker/dockerfiles/Dockerfile.approver"
-      - ".github/workflows/build-and-publish.yml"
   workflow_dispatch:   # manual run
 
 permissions:
@@ -45,7 +41,19 @@ jobs:
         run: |
           echo "LOWERCASE_REPO=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
-      # --- Normalize branch name ---
+      - name: Set VERSION_TAG (git tag push)
+        if: github.ref_type == 'tag'
+        run: |
+          RAW="${GITHUB_REF#refs/tags/approver/}"
+          # If it starts with approver/, strip it; otherwise use full tag
+          if [[ "${GITHUB_REF}" == refs/tags/approver/* ]]; then
+            CLEAN="$RAW"
+          else
+            CLEAN="${GITHUB_REF#refs/tags/}"
+          fi
+          echo "VERSION_TAG=$CLEAN" >> $GITHUB_ENV
+          echo "Tag: $RAW → Version tag: $CLEAN"
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
@@ -53,5 +61,7 @@ jobs:
           file: docker/dockerfiles/Dockerfile.approver
           push: true
           tags: |
-            ghcr.io/${{ env.LOWERCASE_REPO }}/approver:${{ env.BRANCH_NAME }}
             ghcr.io/${{ env.LOWERCASE_REPO }}/approver:${{ github.sha }}
+            ${{ github.ref_type == 'branch' && format('ghcr.io/{0}/approver:{1}', env.LOWERCASE_REPO, env.BRANCH_NAME) || '' }}
+            ${{ github.ref_type == 'tag' && format('ghcr.io/{0}/approver:{1}', env.LOWERCASE_REPO, env.VERSION_TAG) || '' }}
+            ${{ (github.ref_type == 'branch' && github.ref_name == 'main') && format('ghcr.io/{0}/approver:latest', env.LOWERCASE_REPO) || '' }}
