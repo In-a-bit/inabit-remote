@@ -1,0 +1,86 @@
+
+> @inabit-remote/approver@1.1.3 start
+> nest start
+
+[32m[Nest] 3354987  - [39m10/30/2025, 6:20:04 PM [32m    LOG[39m [38;5;3m[NestFactory] [39m[32mStarting Nest application...[39m
+[32m[Nest] 3354987  - [39m10/30/2025, 6:20:04 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mConfigHostModule dependencies initialized[39m[38;5;3m +15ms[39m
+[32m[Nest] 3354987  - [39m10/30/2025, 6:20:04 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mConfigModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 3354987  - [39m10/30/2025, 6:20:04 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mConfigModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 3354987  - [39m10/30/2025, 6:20:04 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mWinstonModule dependencies initialized[39m[38;5;3m +6ms[39m
+[32m[Nest] 3354987  - [39m10/30/2025, 6:20:04 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mWalletModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 3354987  - [39m10/30/2025, 6:20:04 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mUtilsModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 3354987  - [39m10/30/2025, 6:20:04 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mKeysModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 3354987  - [39m10/30/2025, 6:20:04 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mRefreshTokenModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 3354987  - [39m10/30/2025, 6:20:04 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mSharedKeyModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 3354987  - [39m10/30/2025, 6:20:04 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAuthModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 3354987  - [39m10/30/2025, 6:20:04 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mInitiationModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 3354987  - [39m10/30/2025, 6:20:04 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mApproverModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 3354987  - [39m10/30/2025, 6:20:04 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mApproverController {/}:[39m[38;5;3m +7ms[39m
+[32m[Nest] 3354987  - [39m10/30/2025, 6:20:04 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/, GET} route[39m[38;5;3m +2ms[39m
+[32m[Nest] 3354987  - [39m10/30/2025, 6:20:04 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/pairing, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 3354987  - [39m10/30/2025, 6:20:04 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/transaction/approval, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 3354987  - [39m10/30/2025, 6:20:04 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/transaction/validate, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 3354987  - [39m10/30/2025, 6:20:04 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/transaction/whitelist, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 3354987  - [39m10/30/2025, 6:20:04 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/wallet/updated, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 3354987  - [39m10/30/2025, 6:20:04 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/shared-key, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 3354987  - [39m10/30/2025, 6:20:04 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/shared-key/set, POST} route[39m[38;5;3m +0ms[39m
+{
+  level: 'info',
+  message: 'UtilsService initialized',
+  metadata: { timestamp: '2025-10-30T16:20:04.208Z' },
+  timestamp: '2025-10-30T16:20:04.209Z'
+}
+{
+  level: 'info',
+  message: 'UtilsService initialized',
+  metadata: { timestamp: '2025-10-30T16:20:04.211Z' },
+  timestamp: '2025-10-30T16:20:04.211Z'
+}
+{
+  level: 'info',
+  message: 'KeysService initialized',
+  metadata: { timestamp: '2025-10-30T16:20:04.211Z' },
+  timestamp: '2025-10-30T16:20:04.211Z'
+}
+{
+  level: 'info',
+  message: 'UtilsService initialized',
+  metadata: { timestamp: '2025-10-30T16:20:04.212Z' },
+  timestamp: '2025-10-30T16:20:04.212Z'
+}
+{
+  level: 'info',
+  message: 'SharedKeyService initialized',
+  metadata: { timestamp: '2025-10-30T16:20:04.212Z' },
+  timestamp: '2025-10-30T16:20:04.212Z'
+}
+{
+  level: 'info',
+  message: 'UtilsService initialized',
+  metadata: { timestamp: '2025-10-30T16:20:04.212Z' },
+  timestamp: '2025-10-30T16:20:04.212Z'
+}
+{
+  level: 'info',
+  message: 'Init Approver started',
+  metadata: { timestamp: '2025-10-30T16:20:04.212Z' },
+  timestamp: '2025-10-30T16:20:04.212Z'
+}
+{
+  level: 'info',
+  message: 'Checking if Approver is paired already.',
+  metadata: { timestamp: '2025-10-30T16:20:04.250Z' },
+  timestamp: '2025-10-30T16:20:04.250Z'
+}
+{
+  level: 'error',
+  message: 'Init Approver failed. error: error:1E08010C:DECODER routines::unsupported',
+  metadata: { timestamp: '2025-10-30T16:20:04.265Z' },
+  timestamp: '2025-10-30T16:20:04.265Z'
+}
+{
+  level: 'error',
+  message: 'Approver shuts down.',
+  metadata: { timestamp: '2025-10-30T16:20:04.265Z' },
+  timestamp: '2025-10-30T16:20:04.265Z'
+}
