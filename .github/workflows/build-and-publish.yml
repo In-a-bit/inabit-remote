@@ -3,10 +3,7 @@ name: Build & Publish Approver Image
 on:
   push:
     branches: [ "develop", "main" ]
-    tags: [ "approver/**" ]
-    paths:
-      - 'docker/dockerfiles/Dockerfile.approver'
-      - '.github/workflows/build-and-publish.yml'
+    tags: [ "@approver/**" ]
   workflow_dispatch:   # manual run
 
 permissions:
@@ -44,15 +41,15 @@ jobs:
       - name: Set VERSION_TAG (git tag push)
         if: github.ref_type == 'tag'
         run: |
-          RAW="${GITHUB_REF#refs/tags/approver/}"
-          # If it starts with approver/, strip it; otherwise use full tag
-          if [[ "${GITHUB_REF}" == refs/tags/approver/* ]]; then
-            CLEAN="$RAW"
+          RAW="${GITHUB_REF#refs/tags/}"
+          # If the tag starts with "@approver/", strip that full prefix
+          if [[ "$RAW" == @approver/* ]]; then
+          CLEAN="${RAW#@approver/}"
           else
-            CLEAN="${GITHUB_REF#refs/tags/}"
+          CLEAN="$RAW"
           fi
           echo "VERSION_TAG=$CLEAN" >> $GITHUB_ENV
-          echo "Tag: $RAW → Version tag: $CLEAN"
+          echo "Raw tag: $RAW → Version tag: $CLEAN"
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
