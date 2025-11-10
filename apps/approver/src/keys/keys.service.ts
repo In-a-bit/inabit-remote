@@ -66,34 +66,9 @@ export class KeysService {
     const keyFilePath = await this.getKeyFilePath();
     if (fs.existsSync(keyFilePath)) {
       const password = this.configService.getOrThrow('SECRET');
-      const encryptedKeys = fs.readFileSync(keyFilePath).toString().trim();
-
-      if (!encryptedKeys) {
-        this.logger.warn(`Key file ${keyFilePath} exists but is empty`);
-        return undefined;
-      }
-
-      try {
-        const decrypted = cs.AES.decrypt(encryptedKeys, password);
-        const key = decrypted.toString(cs.enc.Utf8);
-
-        if (!key) {
-          this.logger.error(
-            `Failed to decrypt key file: Decryption resulted in empty string. This may indicate wrong password or corrupted data.`,
-          );
-          throw new Error(
-            'Failed to decrypt key file: Invalid password or corrupted encrypted data',
-          );
-        }
-
-        return key;
-      } catch (error) {
-        this.logger.error(
-          `Failed to decrypt key file ${keyFilePath}: ${error.message}`,
-          { error: error.stack },
-        );
-        throw new Error(`Failed to decrypt key file: ${error.message}`);
-      }
+      const encryptedKeys = fs.readFileSync(keyFilePath).toString();
+      const key = cs.AES.decrypt(encryptedKeys, password).toString(cs.enc.Utf8);
+      return key;
     } else return undefined;
   }
 
