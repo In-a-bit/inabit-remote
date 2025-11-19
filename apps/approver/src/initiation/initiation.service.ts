@@ -71,17 +71,17 @@ export class InitiationService {
     const pairingCode = await this.keysService.getPairingCode();
     this.logger.info(`Pairing code: ${pairingCode}`);
     const message = this.authService.getPairingRequestData();
+    this.logger.info(`Pairing request data: ${message}`);
     const mac = await this.keysService.getHashedPairingData(
       message,
       pairingCode,
     );
-
+    this.logger.info(`Mac: ${mac}`);
     this.logger.info('Getting a signature key');
     const signatureKey = await this.keysService.getSignedPairingData(
       message,
       mac,
     );
-
     this.logger.info('Sending pairing data');
     await this.authService.sendPairingData(signatureKey, pairingToken);
   }
