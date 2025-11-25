@@ -76,12 +76,25 @@ export class AuthService {
   }
 
   getPairingRequestData(): string {
-    const data = {
+    const isManaged = this.configService.get('IS_MANAGED');
+    const data: {
+      creator: {
+        email: string;
+        organizationName: string;
+      };
+      isManaged?: boolean;
+    } = {
       creator: {
         email: this.configService.getOrThrow('APPROVER_CREATOR_EMAIL'),
         organizationName: this.configService.getOrThrow('ORGANIZATION_NAME'),
       },
     };
+    if (isManaged === 'true') {
+      this.logger.info(
+        'Pairing is managed, adding isManaged flag to pairing request',
+      );
+      data.isManaged = true;
+    }
     return JSON.stringify(data);
   }
 
@@ -138,6 +151,9 @@ export class AuthService {
         `getPairingToken error: ${this.utilsService.errorToString(error)}`,
       );
       throw error;
+    }
+    if (!pairingToken) {
+      throw new Error('getPairingToken error: failed to get pairing token');
     }
     return pairingToken;
   }
