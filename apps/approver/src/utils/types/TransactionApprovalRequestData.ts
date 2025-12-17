@@ -34,4 +34,6 @@ type SwapDetails = {
   toCoin: string;
   toChain: string;
   toWalletId?: string;
+  providerCodeFrom: string;
+  providerCodeTo: string;
 };
