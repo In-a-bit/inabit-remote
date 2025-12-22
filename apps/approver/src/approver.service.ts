@@ -267,6 +267,8 @@ export class ApproverService implements OnModuleInit, OnApplicationBootstrap {
               to_coin: transaction?.swapDetails?.toCoin,
               to_chain: transaction?.swapDetails?.toChain,
               to_wallet_id: transaction?.swapDetails?.toWalletId,
+              provider_code_from: transaction?.swapDetails?.providerCodeFrom,
+              provider_code_to: transaction?.swapDetails?.providerCodeTo,
             }
           : undefined,
         memo: transaction.memo || undefined,
