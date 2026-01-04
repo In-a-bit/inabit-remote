@@ -19,6 +19,7 @@ export type TransactionApprovalRequestData = {
   offrampDetails?: OfframpDetails;
   swapDetails?: SwapDetails;
   memo?: string;
+  data?: any
 };
 
 type OfframpDetails = {
