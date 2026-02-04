@@ -116,34 +116,48 @@ export class ApproverService implements OnModuleInit, OnApplicationBootstrap {
           error,
         )}`,
       );
+      // Re-throw error so it can be caught by retry logic in handleTransactionApprovalRequest
+      throw error;
     }
+
+    if (!result) {
+      const errorMsg = `Failed to send signed transaction approval: No result returned for transaction ${transactionId}`;
+      this.logger.error(errorMsg);
+      throw new Error(errorMsg);
+    }
+
     return result;
   }
 
   async handleTransactionApprovalRequest(
     transactionApprovalRequestData: TransactionApprovalRequestData,
-    retryCount = 1,
+    retryCount = 0,
   ): Promise<boolean> {
-    try {
-      this.logger.info(
-        `Received transaction for approval: ${JSON.stringify(
-          transactionApprovalRequestData,
-        )}`,
-      );
+    const transactionId = transactionApprovalRequestData.transactionId;
+    const maxRetries = this.configService.get('VALIDATION_RETRY_MAX_COUNT', 10);
+    const baseRetryIntervalMs =
+      this.configService.get('VALIDATION_RETRY_INTERVAL_MINUTES', 1) *
+      60 *
+      1000;
 
-      if (
-        !this.validateRetryCount(
-          retryCount,
-          transactionApprovalRequestData.transactionId,
-        )
-      )
-        return false;
+    try {
+      if (retryCount === 0) {
+        this.logger.info(
+          `Received transaction for approval: ${JSON.stringify(
+            transactionApprovalRequestData,
+          )}`,
+        );
+      } else {
+        this.logger.info(
+          `Retrying transaction approval (attempt ${retryCount + 1}/${maxRetries + 1}): ${transactionId}`,
+        );
+      }
 
       const validationResponse = await this.callExternalValidationUrl(
         transactionApprovalRequestData,
       );
       this.logger.info(
-        `transaction ${transactionApprovalRequestData.transactionId} validation approved: ${validationResponse.approved}`,
+        `transaction ${transactionId} validation approved: ${validationResponse.approved}`,
       );
 
       const signedTransactionData = await this.signTransaction(
@@ -152,50 +166,138 @@ export class ApproverService implements OnModuleInit, OnApplicationBootstrap {
       );
 
       await this.sendSignedTransactionApprovalToInabit(
-        transactionApprovalRequestData.transactionId,
+        transactionId,
         validationResponse?.approved
           ? EnumPolicyApprovalStatus.Approved
           : EnumPolicyApprovalStatus.Rejected,
         signedTransactionData,
       );
       this.logger.info(
-        `transaction ${transactionApprovalRequestData.transactionId} approval sent: (approved: ${validationResponse.approved})`,
+        `transaction ${transactionId} approval sent successfully (approved: ${validationResponse.approved})`,
       );
       return true;
     } catch (error) {
-      return this.handleTransactionApprovalError(
+      return await this.handleTransactionApprovalError(
         retryCount,
+        maxRetries,
+        baseRetryIntervalMs,
         error,
         transactionApprovalRequestData,
       );
     }
   }
 
-  private handleTransactionApprovalError(
+  private async handleTransactionApprovalError(
     retryCount: number,
+    maxRetries: number,
+    baseRetryIntervalMs: number,
     error: any,
     transactionApprovalRequestData: TransactionApprovalRequestData,
-  ) {
+  ): Promise<boolean> {
+    const transactionId = transactionApprovalRequestData.transactionId;
+    const errorMessage = this.utilsService.errorToString(error);
+    const isRetryable = this.isRetryableError(error);
+
     this.logger.error(
-      `handleTransactionApprovalRequest error (retry: ${retryCount}): ${this.utilsService.errorToString(
-        error,
-      )}, ${JSON.stringify(error, Object.getOwnPropertyNames(error))}`,
+      `Transaction approval error (attempt ${retryCount + 1}/${maxRetries + 1}, transactionId: ${transactionId}): ${errorMessage}`,
+      {
+        error: error?.message || errorMessage,
+        stack: error?.stack,
+        retryable: isRetryable,
+      },
     );
-    setTimeout(() => {
-      try {
-        this.handleTransactionApprovalRequest(
-          transactionApprovalRequestData,
-          retryCount + 1,
-        );
-      } catch (error) {
-        this.logger.error(
-          `setTimeout handleTransactionApprovalRequest error (retry: ${retryCount}): ${this.utilsService.errorToString(
-            error,
-          )}`,
-        );
-      }
-    }, this.configService.get('VALIDATION_RETRY_INTERVAL_MINUTES', 3) * 60 * 1000);
-    return false;
+
+    if (!isRetryable) {
+      this.logger.error(
+        `Non-retryable error encountered for transaction ${transactionId}. Aborting retries.`,
+      );
+      return false;
+    }
+
+    if (retryCount >= maxRetries) {
+      this.logger.error(
+        `Max retries (${maxRetries}) reached for transaction ${transactionId}. Aborting.`,
+      );
+      return false;
+    }
+
+    const delayMs = this.calculateRetryDelay(retryCount, baseRetryIntervalMs);
+    this.logger.info(
+      `Scheduling retry ${retryCount + 2}/${maxRetries + 1} for transaction ${transactionId} in ${Math.round(delayMs / 1000)}s (${Math.round(delayMs / 60000)}min)`,
+    );
+
+    await this.sleep(delayMs);
+
+    return this.handleTransactionApprovalRequest(
+      transactionApprovalRequestData,
+      retryCount + 1,
+    );
+  }
+
+  private isRetryableError(error: any): boolean {
+    if (!error) {
+      this.logger.debug('Error is null or undefined, will retry');
+      return true;
+    }
+
+    const errorMessage = error?.message || '';
+    const errorCode = error?.code || '';
+    const statusCode = error?.statusCode;
+    const errorString = `${errorMessage} ${errorCode} ${statusCode || ''}`.toLowerCase();
+
+    // Check: Non-retryable patterns (authentication, authorization, configuration errors)
+    // If error matches non-retryable pattern, don't retry
+    // Otherwise, always retry (including unknown errors)
+    const nonRetryablePatterns = [
+      '401',
+      '403',
+      'unauthorized',
+      'forbidden',
+      'authentication',
+      'authorization',
+      'invalid',
+      'not registered',
+      'not paired',
+      'approver is not registered',
+      'approver is not paired',
+      'approver needs to be paired',
+    ];
+
+    const matchedNonRetryablePattern = nonRetryablePatterns.find((pattern) =>
+      errorString.includes(pattern.toLowerCase()),
+    );
+
+    if (matchedNonRetryablePattern) {
+      this.logger.info(
+        `Error matches non-retryable pattern "${matchedNonRetryablePattern}": ${errorMessage || errorCode || 'Unknown error'}. Status code: ${statusCode || 'N/A'}. Will not retry.`,
+      );
+      return false;
+    }
+
+    // Default: Always retry if not matching non-retryable patterns (including unknown errors)
+    this.logger.info(
+      `Error does not match non-retryable patterns. Error: ${errorMessage || errorCode || JSON.stringify(error)}. Status code: ${statusCode || 'N/A'}. Will retry.`,
+    );
+    return true;
+  }
+
+  private calculateRetryDelay(retryCount: number, baseIntervalMs: number): number {
+    // Exponential backoff: baseIntervalMs * 2^retryCount
+    const exponentialDelay = baseIntervalMs * Math.pow(2, retryCount);
+
+    // Add jitter (±25% random variation) to prevent thundering herd
+    const jitterRange = exponentialDelay * 0.25;
+    const jitter = (Math.random() * 2 - 1) * jitterRange; // Random between -jitterRange and +jitterRange
+
+    const delayWithJitter = Math.max(1000, exponentialDelay + jitter); // Minimum 1 second
+
+    // Cap at 30 minutes to prevent excessive delays
+    const maxDelayMs = 30 * 60 * 1000;
+    return Math.min(delayWithJitter, maxDelayMs);
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   private async signTransaction(
@@ -216,19 +318,6 @@ export class ApproverService implements OnModuleInit, OnApplicationBootstrap {
     return signedTransactionData;
   }
 
-  private validateRetryCount(
-    retryCount: number,
-    transactionId: string,
-  ): boolean {
-    const maxRetries = this.configService.get('VALIDATION_RETRY_MAX_COUNT', 10);
-    if (retryCount > maxRetries) {
-      this.logger.error(
-        `handleTransactionApprovalRequest max retries ${maxRetries} reached. (id: ${transactionId}))`,
-      );
-      return false;
-    }
-    return true;
-  }
 
   private prepareTransactionApprovalDataToSign(
     approved: boolean,
